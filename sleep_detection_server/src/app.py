@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from PIL import Image
 import numpy as np
 import cv2
+import os
 
 app = Flask(__name__)
 
@@ -23,3 +24,6 @@ def classify():
 	# Return
 
 	return jsonify({ 'msg': 'success', 'data': 'placeholder data, replace with prediction later' })
+
+if __name__ == '__main__':
+    app.run(debug=True,host='0.0.0.0',port=int(os.environ.get('PORT', 8080)))
