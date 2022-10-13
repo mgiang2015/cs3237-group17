@@ -7,7 +7,8 @@ from keras.layers import Dense, GlobalAveragePooling2D
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD
 import os.path
-import os.system
+import tarfile
+import urllib
 import ssl
 
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -19,51 +20,15 @@ TRAIN_FRACTION = 0.8
 RANDOM_SEED = 2018
 
 def download_images():
-  """If the images aren't already downloaded, save them to FLOWERS_DIR."""
-  if not os.path.exists(FLOWERS_DIR):
-    DOWNLOAD_URL = 'http://download.tensorflow.org/example_images/flower_photos.tgz'
-    print('Downloading flower images from %s...' % DOWNLOAD_URL)
-    urllib.request.urlretrieve(DOWNLOAD_URL, 'flower_photos.tgz')
-    !tar xfz flower_photos.tgz
-  print('Flower photos are located in %s' % FLOWERS_DIR)
-
-
-def make_train_and_test_sets():
-  """Split the data into train and test sets and get the label classes."""
-  train_examples, test_examples = [], []
-  shuffler = random.Random(RANDOM_SEED)
-  is_root = True
-  for (dirname, subdirs, filenames) in tf.gfile.Walk(FLOWERS_DIR):
-    # The root directory gives us the classes
-    if is_root:
-      subdirs = sorted(subdirs)
-      classes = collections.OrderedDict(enumerate(subdirs))
-      label_to_class = dict([(x, i) for i, x in enumerate(subdirs)])
-      is_root = False
-    # The sub directories give us the image files for training.
-    else:
-      filenames.sort()
-      shuffler.shuffle(filenames)
-      full_filenames = [os.path.join(dirname, f) for f in filenames]
-      label = dirname.split('/')[-1]
-      label_class = label_to_class[label]
-      # An example is the image file and it's label class.
-      examples = list(zip(full_filenames, [label_class] * len(filenames)))
-      num_train = int(len(filenames) * TRAIN_FRACTION)
-      train_examples.extend(examples[:num_train])
-      test_examples.extend(examples[num_train:])
-
-  shuffler.shuffle(train_examples)
-  shuffler.shuffle(test_examples)
-
-  # Create samples folder and move over all test photos
-  if not os.path.exists(SAMPLES_DIR):
-  	os.mkdirs(SAMPLES_DIR)
-	for photo in test_examples:
-	  os.rename(photo, SAMPLES_DIR + '/' + dirname.split('/')[-1])
-  
-  return train_examples, test_examples, classes
-
+    """If the images aren't already downloaded, save them to FLOWERS_DIR."""
+    if not os.path.exists(FLOWERS_DIR):
+        DOWNLOAD_URL = 'http://download.tensorflow.org/example_images/flower_photos.tgz'
+        print('Downloading flower images from %s...' % DOWNLOAD_URL)
+        urllib.request.urlretrieve(DOWNLOAD_URL, 'flower_photos.tgz')
+        file = tarfile.open("flower_photos.tgz")
+        file.extractall(".")
+        file.close()
+    print('Flower photos are located in %s' % FLOWERS_DIR)
 
 def create_model(num_hidden, num_classes):
     base_model = InceptionV3(include_top=False, weights='imagenet')
