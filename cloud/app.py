@@ -1,4 +1,5 @@
 # File to run the web app, basically define API
+from crypt import methods
 from flask import Flask, request, jsonify
 from PIL import Image
 import numpy as np
@@ -21,4 +22,4 @@ def classify():
 
 	# Return
 
-	return jsonify({ 'msg': 'success', 'data': img })
+	return jsonify({ 'msg': 'success', 'data': 'placeholder data, replace with prediction later' })
