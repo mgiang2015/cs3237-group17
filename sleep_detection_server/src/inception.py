@@ -49,20 +49,7 @@ def download_images():
                     os.rename(old_path, new_path)
                 else:
                     os.remove(os.path.join(TRAIN_DIR, row['filename']))
-
-        """
-        # Grouping test data into folders
-        with open(os.path.join(HAR_DIR, 'Testing_set.csv'), newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                parent_dir = os.path.join(TEST_DIR, row['label'])
-                old_path = os.path.join(TEST_DIR, row['filename'])
-                new_path = os.path.join(parent_dir, row['filename'])
-                if not os.path.exists(parent_dir):
-                    os.makedirs(parent_dir)
-                os.rename(old_path, new_path)
-        """
-
+                    
     print('HAR photos are located in %s' % HAR_DIR)
 
 def create_model(num_hidden, num_classes):
