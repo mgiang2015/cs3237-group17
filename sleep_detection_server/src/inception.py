@@ -6,7 +6,6 @@ from keras.callbacks import ModelCheckpoint
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD
-from kaggle.api.kaggle_api_extended import KaggleApi # requires installation of https://github.com/Kaggle/kaggle-api
 import csv # For grouping files into folders
 import os
 import zipfile
@@ -21,12 +20,16 @@ TEST_DIR = HAR_DIR + '/test'
 TRAIN_FRACTION = 0.8
 RANDOM_SEED = 2018
 
+# Kaggle authentication
+os.environ['KAGGLE_USERNAME'] = 'thedecoyg'
+os.environ['KAGGLE_KEY'] = '76a4128dadffac0166a97844c34cd7d1'
+# This import requires the environment to contain 2 variables above. https://towardsdatascience.com/downloading-datasets-from-kaggle-for-your-ml-project-b9120d405ea4
+from kaggle.api.kaggle_api_extended import KaggleApi
+
 def download_images():
     """If the images aren't already downloaded, save them to FLOWERS_DIR."""
     if not os.path.exists(HAR_DIR):
-        # Authenticate Kaggle account https://towardsdatascience.com/downloading-datasets-from-kaggle-for-your-ml-project-b9120d405ea4
-        os.environ['KAGGLE_USERNAME'] = 'thedecoyg'
-        os.environ['KAGGLE_KEY'] = '76a4128dadffac0166a97844c34cd7d1'
+        # Authenticate Kaggle account 
         api = KaggleApi()
         api.authenticate()
 
