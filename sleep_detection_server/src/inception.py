@@ -6,29 +6,64 @@ from keras.callbacks import ModelCheckpoint
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD
-import os.path
-import tarfile
-import urllib
+from kaggle.api.kaggle_api_extended import KaggleApi # requires installation of https://github.com/Kaggle/kaggle-api
+import csv # For grouping files into folders
+import os
+import zipfile
 import ssl
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-MODEL_FILE = "flowers.hd5"
-FLOWERS_DIR = './flower_photos'
-SAMPLES_DIR = "./samples"
+MODEL_FILE = "../har.hd5"
+HAR_DIR = '../Human Action Recognition'
+TRAIN_DIR = HAR_DIR + '/train'
+TEST_DIR = HAR_DIR + '/test'
 TRAIN_FRACTION = 0.8
 RANDOM_SEED = 2018
 
 def download_images():
     """If the images aren't already downloaded, save them to FLOWERS_DIR."""
-    if not os.path.exists(FLOWERS_DIR):
-        DOWNLOAD_URL = 'http://download.tensorflow.org/example_images/flower_photos.tgz'
-        print('Downloading flower images from %s...' % DOWNLOAD_URL)
-        urllib.request.urlretrieve(DOWNLOAD_URL, 'flower_photos.tgz')
-        file = tarfile.open("flower_photos.tgz")
-        file.extractall(".")
-        file.close()
-    print('Flower photos are located in %s' % FLOWERS_DIR)
+    if not os.path.exists(HAR_DIR):
+        # Authenticate Kaggle account https://towardsdatascience.com/downloading-datasets-from-kaggle-for-your-ml-project-b9120d405ea4
+        os.environ['KAGGLE_USERNAME'] = 'thedecoyg'
+        os.environ['KAGGLE_KEY'] = '76a4128dadffac0166a97844c34cd7d1'
+        api = KaggleApi()
+        api.authenticate()
+
+        print('Downloading HAR images...')
+        # api.dataset_download_files('meetnagadia/human-action-recognition-har-dataset', path='..')
+
+        with zipfile.ZipFile('../human-action-recognition-har-dataset.zip', 'r') as zip_ref:
+            zip_ref.extractall('..')
+
+        # Grouping train data into folders
+        with open(os.path.join(HAR_DIR, 'Training_set.csv'), newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                if row['label'] in ['sleeping', 'sitting', 'using_laptop', 'listening_to_music']:
+                    parent_dir = os.path.join(TRAIN_DIR, row['label'])
+                    old_path = os.path.join(TRAIN_DIR, row['filename'])
+                    new_path = os.path.join(parent_dir, row['filename'])
+                    if not os.path.exists(parent_dir):
+                        os.makedirs(parent_dir)
+                    os.rename(old_path, new_path)
+                else:
+                    os.remove(os.path.join(TRAIN_DIR, row['filename']))
+
+        """
+        # Grouping test data into folders
+        with open(os.path.join(HAR_DIR, 'Testing_set.csv'), newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                parent_dir = os.path.join(TEST_DIR, row['label'])
+                old_path = os.path.join(TEST_DIR, row['filename'])
+                new_path = os.path.join(parent_dir, row['filename'])
+                if not os.path.exists(parent_dir):
+                    os.makedirs(parent_dir)
+                os.rename(old_path, new_path)
+        """
+
+    print('HAR photos are located in %s' % HAR_DIR)
 
 def create_model(num_hidden, num_classes):
     base_model = InceptionV3(include_top=False, weights='imagenet')
@@ -57,7 +92,7 @@ def load_existing(model_file):
 
     return model
 
-def train(model_file, train_path, validation_path, num_hidden=200, num_classes=5, steps=32, num_epochs=20):
+def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4, steps=32, num_epochs=20):
     if os.path.exists(model_file):
         print("\n*** Existing model found at %s. Loading.***\n\n" % model_file)
         model = load_existing(model_file)
@@ -109,9 +144,8 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=5
     model.compile(optimizer=SGD(lr=0.00001, momentum=0.9), loss='categorical_crossentropy')
 
 def main():
-	# Need to find a way to download our flower set!
 	download_images()
-	train(MODEL_FILE, train_path="flower_photos", validation_path="flower_photos", steps=100, num_epochs=10)
+	train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
 
 if __name__ == "__main__":
     main()
