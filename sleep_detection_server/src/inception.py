@@ -31,7 +31,7 @@ def download_images():
         api.authenticate()
 
         print('Downloading HAR images...')
-        # api.dataset_download_files('meetnagadia/human-action-recognition-har-dataset', path='..')
+        api.dataset_download_files('meetnagadia/human-action-recognition-har-dataset', path='..')
 
         with zipfile.ZipFile('../human-action-recognition-har-dataset.zip', 'r') as zip_ref:
             zip_ref.extractall('..')
@@ -49,7 +49,7 @@ def download_images():
                     os.rename(old_path, new_path)
                 else:
                     os.remove(os.path.join(TRAIN_DIR, row['filename']))
-                    
+
     print('HAR photos are located in %s' % HAR_DIR)
 
 def create_model(num_hidden, num_classes):
