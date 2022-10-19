@@ -13,6 +13,7 @@ TEST_DIR = HAR_DIR + '/test'
 dict={0:'listening_to_music', 1:'sitting', 2:'sleeping', 3:'using_laptop'}
 session = tf.compat.v1.Session(graph = tf.compat.v1.Graph())
 
+
 def classify(model, image):
     with session.graph.as_default():
         set_session(session)

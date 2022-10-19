@@ -6,7 +6,7 @@ RUN apt-get update
 RUN apt-get install ffmpeg libsm6 libxext6  -y
 
 # Install all needed dependencies
-RUN pip install flask Pillow numpy opencv-python kaggle
+RUN pip install flask Pillow numpy opencv-python kaggle tensorflow
 
 # Copy necessary files to work directory
 COPY src/ /app

@@ -6,6 +6,7 @@ from keras.callbacks import ModelCheckpoint
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD
+import tensorflow as tf # Converting model to tflite to host on firebase
 import csv # For grouping files into folders
 import os
 import zipfile
@@ -133,9 +134,18 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
 
     model.compile(optimizer=SGD(lr=0.00001, momentum=0.9), loss='categorical_crossentropy')
 
-def main():
+    # Convert to tflite to host on firebase
+    converter = tf.lite.TFLiteConverter.from_saved_model(MODEL_FILE)
+    tflite_model = converter.convert()
+
+    # Save the model.
+    with open('model.tflite', 'wb') as f:
+        f.write(tflite_model)
+
+
+def handleTrainRequest():
 	download_images()
 	train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
 
 if __name__ == "__main__":
-    main()
+    handleTrainRequest()
