@@ -49,7 +49,7 @@ def classify():
 
 	# Check for model existance
 	if not os.path.exists(MODEL_NAME) or appModel == None:
-		return jsonify({ 'msg': 'Failed. Model has not been trained. Please send a GET request to /train and wait for a while :)', 'data': {}})
+		return jsonify({ 'msg': 'Failed. No model found', 'data': {}})
 
 	# Process image and classify
 	img = preprocess_image(img)

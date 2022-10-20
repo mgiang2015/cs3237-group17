@@ -14,7 +14,7 @@ import ssl
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-MODEL_FILE = "../har.hd5"
+MODEL_FILE = "../static/har.hd5"
 HAR_DIR = '../Human Action Recognition'
 TRAIN_DIR = HAR_DIR + '/train'
 TEST_DIR = HAR_DIR + '/test'
