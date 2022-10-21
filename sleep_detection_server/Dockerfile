@@ -6,7 +6,7 @@ RUN apt-get update
 RUN apt-get install ffmpeg libsm6 libxext6  -y
 
 # Install all needed dependencies
-RUN pip install flask Pillow numpy opencv-python kaggle tensorflow gunicorn
+RUN pip3 --default-timeout=1000 install flask Pillow numpy opencv-python kaggle tensorflow
 
 # Copy necessary files to work directory
 COPY src/ /app
@@ -16,4 +16,4 @@ WORKDIR /app
 ENV PORT 8080
 
 # Run server
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 app:app
+CMD ["python3", "app.py"]

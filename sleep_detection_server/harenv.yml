@@ -1,0 +1,16 @@
+name: har_environment
+dependencies:
+- python=3.7.3
+- pip:
+- azureml-defaults
+
+- tensorflow
+- flask 
+- Pillow 
+- numpy 
+- opencv-python 
+- kaggle
+
+
+channels:
+- conda-forge
