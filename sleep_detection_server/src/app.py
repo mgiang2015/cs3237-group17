@@ -6,12 +6,11 @@ import tensorflow as tf
 from tensorflow.python.keras.backend import set_session
 from PIL import Image
 import numpy as np
-import cv2
 import os
 from inception import handleTrainRequest
 
 # Load model
-MODEL_NAME = '../har.hd5'
+MODEL_NAME = 'har.hd5'
 dict={0:'listening_to_music', 1:'sitting', 2:'sleeping', 3:'using_laptop'}
 session = tf.compat.v1.Session(graph = tf.compat.v1.Graph())
 appModel = None
@@ -60,11 +59,6 @@ def classify():
 		'label': label,
 		'probability': str(prob)
 	}})
-
-@app.route('/train', methods=["GET"])
-def train():
-	handleTrainRequest()
-	return jsonify({ "msg": "Training has completed. Send a POST request to /classify to classify your picture." })
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=int(os.environ.get('PORT', 8080)))

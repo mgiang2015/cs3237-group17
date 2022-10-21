@@ -14,7 +14,7 @@ import ssl
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-MODEL_FILE = "../static/har.hd5"
+MODEL_FILE = "har.hd5"
 HAR_DIR = '../Human Action Recognition'
 TRAIN_DIR = HAR_DIR + '/train'
 TEST_DIR = HAR_DIR + '/test'
@@ -133,14 +133,6 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
         layer.trainable = True
 
     model.compile(optimizer=SGD(lr=0.00001, momentum=0.9), loss='categorical_crossentropy')
-
-    # Convert to tflite to host on firebase
-    converter = tf.lite.TFLiteConverter.from_saved_model(MODEL_FILE)
-    tflite_model = converter.convert()
-
-    # Save the model.
-    with open('model.tflite', 'wb') as f:
-        f.write(tflite_model)
 
 
 def handleTrainRequest():

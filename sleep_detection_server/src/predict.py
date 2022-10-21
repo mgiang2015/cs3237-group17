@@ -6,7 +6,7 @@ from PIL import Image
 from os import listdir
 from os.path import join
 
-MODEL_NAME = '../har.hd5'
+MODEL_NAME = 'har.hd5'
 HAR_DIR = '../Human Action Recognition'
 TEST_DIR = HAR_DIR + '/test'
 
