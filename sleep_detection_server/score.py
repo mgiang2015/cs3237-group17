@@ -48,3 +48,6 @@ def run(raw_data):
         'label': label,
         'probability': str(prob)
     }})
+
+if __name__ == "__main__":
+    init()

@@ -15,9 +15,9 @@ import ssl
 # IMPORT AZURE ML SDK MODULES
 import azureml.core
 from azureml.core import Workspace
-from azureml.core.model import Model
+from azureml.core.model import Model as AzureModel
 from azureml.core import Experiment # Probably won't run experiment?
-from azureml.core.webservice import WebService
+from azureml.core.webservice import Webservice
 from azureml.core.image import ContainerImage
 from azureml.core.webservice import AciWebservice
 from azureml.core.conda_dependencies import CondaDependencies
@@ -150,13 +150,17 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
 def handleTrainRequest():
     print(azureml.core.VERSION) # Just to make sure everything is working properly
     # Create Azure ML Workspace. This will create the resource group and write to file .azure/config.json
+    """ Workspace alrd exist. Skip
     ws = Workspace.create(name="sleepdetection",
                             subscription_id="ad527dc1-1d46-4871-bce7-f71b68e298b2",
                             resource_group="sleepdeprived",
                             create_resource_group=True,
                             location="eastus")
+    
     # Write config to .azure/config.json
     ws.write_config()
+    """
+
     # Access from existing config file
     ws = Workspace.from_config()
     # Print config out
@@ -164,10 +168,10 @@ def handleTrainRequest():
 
     # Actual training
     download_images()
-    train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
+    # train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
 
     # Register model with azure.
-    model = Model.register(model_path=MODEL_FILE,
+    model = AzureModel.register(model_path=MODEL_FILE,
                             model_name="har",
                             tags={"key": "1"},
                             description="Sleep detection",
@@ -199,7 +203,7 @@ def handleTrainRequest():
                                                     conda_file="harenv.yml")
 
     # Expose web service, if not docker image is useless
-    service = Webservice.deploy_from_model(Workspace=ws,
+    service = Webservice.deploy_from_model(workspace=ws,
                                         name="sleepdetectionserver",
                                         deployment_config=aciconfig,
                                         models=[model],
