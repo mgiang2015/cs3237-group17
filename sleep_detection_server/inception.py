@@ -160,7 +160,6 @@ def handleTrainRequest():
     # Write config to .azure/config.json
     ws.write_config()
     """
-
     print("Loading workspace")
     # Access from existing config file
     ws = Workspace.from_config()
@@ -189,12 +188,7 @@ def handleTrainRequest():
     # Create env config file for the model
     print("writing config")
     salenv = CondaDependencies()
-    salenv.add_tensorflow_pip_package()
-    salenv.add_pip_package("Pillow")
-    salenv.add_pip_package("numpy")
-    salenv.add_pip_package("opencv-python")
-    salenv.add_pip_package("kaggle")
-    salenv.add_pip_package("azureml-core")
+    salenv.add_tensorflow_conda_package()
 
     with open('harenv.yml', 'w') as f:
         f.write(salenv.serialize_to_string())

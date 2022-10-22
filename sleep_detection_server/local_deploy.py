@@ -5,10 +5,10 @@ from azureml.core.model import Model
 from azureml.core.environment import Environment
 
 ws = Workspace.from_config()
-model = Model(ws, 'har')
+model = Model(ws, 'sleepdetection')
 
-myenv = Environment.get(workspace=ws, name="tutorial-env", version="1")
-inference_config = InferenceConfig(entry_script="score.py", image_config=image_config)
+myenv = Environment.get(workspace=ws)
+inference_config = InferenceConfig(entry_script="score.py", environment=myenv)
 
 deployment_config = LocalWebservice.deploy_configuration(port=8080)
 
