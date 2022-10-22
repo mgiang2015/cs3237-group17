@@ -3,12 +3,13 @@ from tensorflow.python.keras.models  import load_model
 import tensorflow as tf
 from tensorflow.python.keras.backend import set_session
 import numpy as np
+import os
 from PIL import Image
 from flask import Flask, request, jsonify
 
 from azureml.core.model import Model
 
-MODEL_NAME = 'har'
+MODEL_NAME = 'har.hd5'
 dict={0:'listening_to_music', 1:'sitting', 2:'sleeping', 3:'using_laptop'}
 session = tf.compat.v1.Session(graph = tf.compat.v1.Graph())
 
@@ -30,9 +31,13 @@ def classifyImage(model, image):
 def init():
     global model
     # Retrieve model
+    # AZUREML_MODEL_DIR is an environment variable created during deployment.
+    # It is the path to the model folder (./azureml-models/$MODEL_NAME/$VERSION)
+    model_path = os.path.join(
+        os.getenv("AZUREML_MODEL_DIR"), MODEL_NAME)
+    
     with session.graph.as_default():
         set_session(session)
-        model_path = Model.get_model_path(MODEL_NAME)            
         model = load_model(model_path)
 
 def run(raw_data):
