@@ -149,8 +149,8 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
 
 def handleTrainRequest():
     print(azureml.core.VERSION) # Just to make sure everything is working properly
+    """
     # Create Azure ML Workspace. This will create the resource group and write to file .azure/config.json
-    """ Workspace alrd exist. Skip
     ws = Workspace.create(name="sleepdetection",
                             subscription_id="ad527dc1-1d46-4871-bce7-f71b68e298b2",
                             resource_group="sleepdeprived",
@@ -161,16 +161,18 @@ def handleTrainRequest():
     ws.write_config()
     """
 
+    print("Loading workspace")
     # Access from existing config file
     ws = Workspace.from_config()
     # Print config out
     ws.get_details()
 
     # Actual training
-    download_images()
-    # train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
+    #download_images()
+    #train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
 
     # Register model with azure.
+    print("Registering")
     model = AzureModel.register(model_path=MODEL_FILE,
                             model_name="har",
                             tags={"key": "1"},
@@ -178,12 +180,14 @@ def handleTrainRequest():
                             workspace=ws)
 
     # Define Azure ML Deployment config. For deploying to container instance
+    print("Deploying container instance")
     aciconfig = AciWebservice.deploy_configuration(cpu_cores=1,
                                                     memory_gb=4,
                                                     tags={"data": "sleep detection", "method": "CNN"},
                                                     description="Detect Sleep through photos")
     
     # Create env config file for the model
+    print("writing config")
     salenv = CondaDependencies()
     salenv.add_tensorflow_pip_package()
     salenv.add_pip_package("Pillow")
@@ -198,13 +202,15 @@ def handleTrainRequest():
         print(f.read()) # For debugging
 
     # Deploy model to Azure Container Instance
+    print("deploying model")
     image_config = ContainerImage.image_configuration(execution_script="score.py",
                                                     runtime="python",
                                                     conda_file="harenv.yml")
 
     # Expose web service, if not docker image is useless
+    print("Exposing webservice")
     service = Webservice.deploy_from_model(workspace=ws,
-                                        name="sleepdetectionserver",
+                                        name="sleepdetectionserver2",
                                         deployment_config=aciconfig,
                                         models=[model],
                                         image_config=image_config)
