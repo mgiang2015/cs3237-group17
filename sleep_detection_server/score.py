@@ -36,7 +36,8 @@ def init():
         model = load_model(model_path)
 
 def run(raw_data):
-    img = Image.open(raw_data)
+    file = raw_data.files['image'] # byte file
+    img = Image.open(file)
 
     # Process image and classify
     img = preprocess_image(img)

@@ -181,7 +181,12 @@ def handleTrainRequest():
     
     # Create env config file for the model
     salenv = CondaDependencies()
-    salenv.add_conda_package("tensorflow")
+    salenv.add_tensorflow_pip_package()
+    salenv.add_pip_package("Pillow")
+    salenv.add_pip_package("numpy")
+    salenv.add_pip_package("opencv-python")
+    salenv.add_pip_package("kaggle")
+    salenv.add_pip_package("azureml-core")
 
     with open('harenv.yml', 'w') as f:
         f.write(salenv.serialize_to_string())
