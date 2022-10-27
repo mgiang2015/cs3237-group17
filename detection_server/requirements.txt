@@ -1,0 +1,9 @@
+Flask
+gunicorn
+google-cloud
+google-cloud-storage
+Pillow
+tensorflow==2.9.2
+numpy
+wheel
+waitress
