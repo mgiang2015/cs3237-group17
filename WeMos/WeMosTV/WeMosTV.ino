@@ -11,6 +11,9 @@
 #define DHTPIN D6
 #define DHTTYPE    DHT11
 
+int photoresistor = A0;
+int light_intensity = 0;
+
 const uint16_t kIrLed = 2;
 
 // WiFi
@@ -98,6 +101,10 @@ void setup() {
 
 void loop() {
   delay(delayMS);
+  // Get light intensity reading from photoresistor
+  light_intensity = analogRead(photoresistor);
+  Serial.println(light_intensity, DEC);
+
   // Get temperature event and print its value.
   sensors_event_t event;
   dht.temperature().getEvent(&event);
