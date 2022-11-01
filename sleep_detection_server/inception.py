@@ -12,20 +12,10 @@ import os
 import zipfile
 import ssl
 
-# IMPORT AZURE ML SDK MODULES
-import azureml.core
-from azureml.core import Workspace
-from azureml.core.model import Model as AzureModel
-from azureml.core import Experiment # Probably won't run experiment?
-from azureml.core.webservice import Webservice
-from azureml.core.image import ContainerImage
-from azureml.core.webservice import AciWebservice
-from azureml.core.conda_dependencies import CondaDependencies
-
 # Load dataset and do the normal training stuff
 ssl._create_default_https_context = ssl._create_unverified_context
 
-MODEL_FILE = "outputs/har.hd5" # output/modelname is azure's convention. Anything in outputs folder is uploaded as resources for ML
+MODEL_FILE = "har.hd5"
 HAR_DIR = '../Human Action Recognition'
 TRAIN_DIR = HAR_DIR + '/train'
 TEST_DIR = HAR_DIR + '/test'
@@ -55,7 +45,7 @@ def download_images():
         with open(os.path.join(HAR_DIR, 'Training_set.csv'), newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if row['label'] in ['sleeping', 'sitting', 'using_laptop', 'listening_to_music']:
+                if row['label'] in ['sleeping']:
                     parent_dir = os.path.join(TRAIN_DIR, row['label'])
                     old_path = os.path.join(TRAIN_DIR, row['filename'])
                     new_path = os.path.join(parent_dir, row['filename'])
@@ -63,7 +53,14 @@ def download_images():
                         os.makedirs(parent_dir)
                     os.rename(old_path, new_path)
                 else:
-                    os.remove(os.path.join(TRAIN_DIR, row['filename']))
+                    parent_dir = os.path.join(TRAIN_DIR, 'not_sleeping')
+                    old_path = os.path.join(TRAIN_DIR, row['filename'])
+                    new_path = os.path.join(parent_dir, row['filename'])
+                    if not os.path.exists(parent_dir):
+                        os.makedirs(parent_dir)
+                    os.rename(old_path, new_path)
+
+    # Add our own images to sleeping and not_sleeping. Do later once we collect data
 
     print('HAR photos are located in %s' % HAR_DIR)
 
@@ -148,72 +145,9 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
 
 
 def handleTrainRequest():
-    print(azureml.core.VERSION) # Just to make sure everything is working properly
-    """
-    # Create Azure ML Workspace. This will create the resource group and write to file .azure/config.json
-    ws = Workspace.create(name="sleepdetection",
-                            subscription_id="ad527dc1-1d46-4871-bce7-f71b68e298b2",
-                            resource_group="sleepdeprived",
-                            create_resource_group=True,
-                            location="eastus")
-    
-    # Write config to .azure/config.json
-    ws.write_config()
-    """
-    print("Loading workspace")
-    # Access from existing config file
-    ws = Workspace.from_config()
-    # Print config out
-    ws.get_details()
-
     # Actual training
-    #download_images()
-    #train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=10)
-
-    # Register model with azure.
-    print("Registering")
-    model = AzureModel.register(model_path=MODEL_FILE,
-                            model_name="har",
-                            tags={"key": "1"},
-                            description="Sleep detection",
-                            workspace=ws)
-
-    # Define Azure ML Deployment config. For deploying to container instance
-    print("Deploying container instance")
-    aciconfig = AciWebservice.deploy_configuration(cpu_cores=1,
-                                                    memory_gb=4,
-                                                    tags={"data": "sleep detection", "method": "CNN"},
-                                                    description="Detect Sleep through photos")
-    
-    # Create env config file for the model
-    print("writing config")
-    salenv = CondaDependencies()
-    salenv.add_tensorflow_conda_package()
-
-    with open('harenv.yml', 'w') as f:
-        f.write(salenv.serialize_to_string())
-    with open('harenv.yml', 'r') as f:
-        print(f.read()) # For debugging
-
-    # Deploy model to Azure Container Instance
-    print("deploying model")
-    image_config = ContainerImage.image_configuration(execution_script="score.py",
-                                                    runtime="python",
-                                                    conda_file="harenv.yml")
-
-    # Expose web service, if not docker image is useless
-    print("Exposing webservice")
-    service = Webservice.deploy_from_model(workspace=ws,
-                                        name="sleepdetectionserver2",
-                                        deployment_config=aciconfig,
-                                        models=[model],
-                                        image_config=image_config)
-    
-    service.wait_for_deployment(show_output=True)
-
-    # Get web service url. Can get this under Workspace/Deployments in Azure portal too
-    print(service.scroring_uri)
-
+    download_images()
+    train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=100)
 
 if __name__ == "__main__":
     handleTrainRequest()
