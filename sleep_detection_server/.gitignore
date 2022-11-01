@@ -2,3 +2,4 @@ __pycache__/
 human-action-recognition-har-dataset.*
 Human Action Recognition/
 outputs/
+har.hd5/

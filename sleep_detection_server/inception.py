@@ -147,7 +147,10 @@ def train(model_file, train_path, validation_path, num_hidden=200, num_classes=4
 def handleTrainRequest():
     # Actual training
     download_images()
-    train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=4, validation_path=TRAIN_DIR, steps=100, num_epochs=100)
+
+    # Changed num_classes to 2, we only have 2 classes now
+    # Changed epochs to 100 to have a better models
+    train(MODEL_FILE, train_path=TRAIN_DIR, num_classes=2, validation_path=TRAIN_DIR, steps=100, num_epochs=100)
 
 if __name__ == "__main__":
     handleTrainRequest()
