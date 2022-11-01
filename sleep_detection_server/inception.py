@@ -41,6 +41,10 @@ def download_images():
         with zipfile.ZipFile('../human-action-recognition-har-dataset.zip', 'r') as zip_ref:
             zip_ref.extractall('..')
 
+        # Unzip our own collected data into HAR_DIR to create class folders
+        with zipfile.ZipFile('../collected_data.zip', 'r') as zip_ref:
+            zip_ref.extractall(TRAIN_DIR)
+
         # Grouping train data into folders
         with open(os.path.join(HAR_DIR, 'Training_set.csv'), newline='') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -59,8 +63,6 @@ def download_images():
                     if not os.path.exists(parent_dir):
                         os.makedirs(parent_dir)
                     os.rename(old_path, new_path)
-
-    # Add our own images to sleeping and not_sleeping. Do later once we collect data
 
     print('HAR photos are located in %s' % HAR_DIR)
 
