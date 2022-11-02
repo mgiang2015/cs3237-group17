@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
 from PIL import Image
 import shutil
-from model import preprocess_image, classify_image, get_model, MODEL_PATH
+import os
+from model import preprocess_image, classify_image, get_model, get_model_path
 
 app = Flask(__name__)
 url = "https://cs3237-366406.uc.r.appspot.com/"
@@ -20,7 +21,9 @@ def help():
 @app.route("/updateModel", methods=["POST"])
 def update():
     # Delete model and zip file to ensure it's updated
-    shutil.rmtree(MODEL_PATH)
+    if os.path.exists(get_model_path()):
+        shutil.rmtree(get_model_path())
+        
     get_model()
     return "Update completed"
 
