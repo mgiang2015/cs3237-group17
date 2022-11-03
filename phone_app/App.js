@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  Alert,
 } from 'react-native';
 import { Input, Button} from '@rneui/base';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,7 +31,6 @@ export default function App() {
   const [topic, setTopic] = useState('')
   const [subscribedTopic, setSubscribedTopic] = useState('')
   const [message, setMessage] = useState('')
-  const [messageList, setMessageList] = useState([])
   const [status, setStatus] = useState('')
 
   const onConnect = () => {
@@ -61,6 +61,7 @@ export default function App() {
     client.disconnect()
     setStatus('')
     setSubscribedTopic('')
+    console.log("disconnected")
   }
 
   const onConnectionLost= (responseObject) =>{
@@ -71,27 +72,20 @@ export default function App() {
 
   const onMessageArrived = (message)=> {
     console.log('onMessageArrived:' + message.payloadString);
-    let newmessageList = messageList;
-    newmessageList.unshift(message.payloadString);
-    setMessageList(newmessageList);  
-  }
-  
-  const onChangeTopic = (text) => {
-    setTopic(text);
+    Alert.alert(
+      "Message received",
+      message.payloadString,
+      [
+        {
+          text: "Noted!"
+        }
+      ]
+    )
   }
 
   const subscribeTopic = (topicName) => {
     setSubscribedTopic(topicName)
     client.subscribe(topicName, { qos: 0 });
-  }
-
-  const unSubscribeTopic = (topicName) => {
-    setSubscribedTopic('');
-    client.unsubscribe(topicName);
-  }
-
-  const onChangeMessage = (text) => {
-    setMessage(text);
   }
 
   const sendMessage = () => {
@@ -134,7 +128,6 @@ export default function App() {
           disabled={status === 'isFetching' ? true : false}
         />
       }
-      
     </View>
   );
 }
