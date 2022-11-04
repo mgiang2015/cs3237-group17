@@ -1,5 +1,4 @@
 import json
-
 from flask import Flask, request, jsonify
 from flask_mqtt import Mqtt
 import requests
@@ -17,7 +16,7 @@ app.config['MQTT_PASSWORD'] = '123kek'  # Set this item when you need to verify 
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
 topic = ['group17/tvManager/sensors', 'group17/tvManager/Photoresistor', 'group17/stoveManager/TempSensor',
-         'group17/stoveManager/Photoresistor', 'group17/tvManager/Camera'];
+         'group17/stoveManager/Photoresistor', 'group17/tvManager/Camera', 'group17/tvManager/command'];
 mqtt_client = Mqtt(app)
 
 CAMERA_TOPIC = "group17/tvManager/Camera"
@@ -43,10 +42,11 @@ def handle_mqtt_message(client, userdata, message):
 
     data = dict(
         topic1=message.topic,
-        payload=message.payload.decode()
+        payload=message.payload #.decode()
     )
 
     topic1 = message.topic
+    #Image data from camera sent to firebase server and response obtained
     if topic1 == CAMERA_TOPIC:
         img_counter = img_counter + 1
 
@@ -60,11 +60,18 @@ def handle_mqtt_message(client, userdata, message):
 
         response = requests.post(url, files=files)
         print(response.content)
+        storedVal = json.loads(response.text)
+        print(storedVal['data']['label'])
+        if storedVal['data']['label'] == "sleeping":
+            print("WOOOOOOOOOOHOOOOOOOOOOOOOOOO")
+            #do some cool stuff
+
+    #Sensoral data sent to database + Perform ML
     elif topic1 == SENSORS_TOPIC:
         # TODO: Add sensor data to database and perform ML as required
         print(message.payload)
     else:
-        print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+        print('Received message on topic: {topic1} with payload: {payload}'.format(**data))
 
 
 @app.route('/publish', methods=['POST'])
