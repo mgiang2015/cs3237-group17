@@ -10,6 +10,7 @@ import {
 import { Input, Button} from '@rneui/base';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import init from 'react_native_mqtt';
+import { Audio } from 'expo-av';
 
 init({
   size: 10000,
@@ -53,6 +54,7 @@ const CONNECT_DEVICE_DONE = "DONE"
 const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
 const JSON_MESSAGE_KEY = "msg"
+const MESSAGE_ALERT = "ALERT"
 
 function getAllDeviceData() {
   return MOCK_DB;
@@ -61,6 +63,21 @@ function getAllDeviceData() {
 export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
   const [allDeviceState, setAllDeviceState] = useState(getAllDeviceData()) // contains an array of device states, would be retrieved from database
+  const [sound, setSound] = useState();
+
+  async function playSound() {
+    console.log('Loading Sound');
+    // need to download a sound
+    const { sound } = await Audio.Sound.createAsync(require('./hello.mp3'));
+    setSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  }
+
+  async function stopSound() {
+    setSound(null)
+  }
 
   const turnOffDevice = (name) => {
     const newState = allDeviceState.map(obj => {
@@ -138,6 +155,10 @@ export default function App() {
       unsubscribeTopic(CONNECT_DEVICE_CHANNEL)
     }
 
+    if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_ALERT) {
+      playSound()
+    }
+
     // handle turning off and on device. deviceCommand[0] is name, [1] is ON / OFF
     const deviceCommand = jsonMessage[JSON_MESSAGE_KEY].split('_')
     if (deviceCommand[1] === DEVICE_STATE_ON) {
@@ -181,6 +202,18 @@ export default function App() {
     client.onMessageArrived = onMessageArrived;
   }, [client])
 
+  // set up sound
+  useEffect(() => {
+    return sound
+      ? () => {
+          console.log('Unloading Sound');
+          // unloadAsync to prevent memory leaks
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
+
+
   // Button renderer
   const renderView = () => {
     // connected and TV is on
@@ -190,9 +223,9 @@ export default function App() {
           {
             allDeviceState.map((device) => {
               if (device.state === DEVICE_STATE_ON) {
-                return <Text>{`Device name: ${device.name}. State: ON`}</Text>
+                return <Text key={device.name}>{`Device name: ${device.name}. State: ON`}</Text>
               } else {
-                return <Text>{`Device name: ${device.name}. State: Off since ${device.offTime.getHours()}:${device.offTime.getMinutes()}:${device.offTime.getSeconds()}`}</Text>
+                return <Text key={device.name}>{`Device name: ${device.name}. State: Off since ${device.offTime.getHours()}:${device.offTime.getMinutes()}:${device.offTime.getSeconds()}`}</Text>
               }
             })
           }
@@ -208,6 +241,16 @@ export default function App() {
             title='SET UP NEW DEVICE'
             onPress={startConnectDevice}
           />
+          {
+            sound
+            ?
+            <Button 
+              type='solid'
+              title='STOP ALARM'
+              onPress={stopSound}
+            />
+            : null
+          }
         </View>
       )
     }
