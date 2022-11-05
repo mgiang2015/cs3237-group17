@@ -27,22 +27,6 @@ const options = {
 };
 client = new Paho.MQTT.Client(options.host, options.port, options.path);
 
-const MOCK_DB = [
-  {
-    name: "TV",
-    state: DEVICE_STATE_OFF,
-    offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
-  },{
-    name: "PANASONIC",
-    state: DEVICE_STATE_OFF,
-    offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
-  }
-
-]
 const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
@@ -56,14 +40,26 @@ const DEVICE_STATE_OFF = "OFF"
 const JSON_MESSAGE_KEY = "msg"
 const MESSAGE_ALERT = "ALERT"
 
-function getAllDeviceData() {
-  return MOCK_DB;
-}
+var MOCK_DB = [
+  {
+    name: "TV",
+    state: DEVICE_STATE_OFF,
+    offTime: new Date(),
+    irSignalOn: "ligma",
+    irSignalOff: "ben dover",
+  },{
+    name: "PANASONIC",
+    state: DEVICE_STATE_OFF,
+    offTime: new Date(),
+    irSignalOn: "ligma",
+    irSignalOff: "ben dover",
+  }
+]
 
 export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
-  const [allDeviceState, setAllDeviceState] = useState(getAllDeviceData()) // contains an array of device states, would be retrieved from database
-  const [sound, setSound] = useState();
+  const [allDeviceState, setAllDeviceState] = useState(MOCK_DB) // contains an array of device states, would be retrieved from database
+  const [sound, setSound] = useState(null);
 
   async function playSound() {
     console.log('Loading Sound');
@@ -75,32 +71,37 @@ export default function App() {
     await sound.playAsync();
   }
 
-  async function stopSound() {
+  function stopSound() {
     setSound(null)
   }
 
-  const turnOffDevice = (name) => {
+  function turnOffDevice(name) {
     const newState = allDeviceState.map(obj => {
       if (obj.name === name) {
-        return {...obj, state: DEVICE_STATE_OFF, offTime: new Date()}
+        var clone = Object.assign({}, {...obj, state: DEVICE_STATE_OFF, offTime: new Date()})
+        return clone
       }
 
-      return obj;
+      return {...obj};
     })
 
-    setAllDeviceState(newState)
+    setAllDeviceState([...newState])
+    console.log(newState)
+    console.log(allDeviceState)
   }
 
-  const turnOnDevice = (name) => {
+  function turnOnDevice(name) {
     const newState = allDeviceState.map(obj => {
       if (obj.name === name) {
-        return {...obj, state: DEVICE_STATE_ON}
+        var clone = Object.assign({}, {...obj, state: DEVICE_STATE_ON})
+        return clone
       }
 
-      return obj;
+      return {...obj};
     })
-
-    setAllDeviceState(newState)
+    setAllDeviceState([...newState])
+    console.log(newState)
+    console.log(allDeviceState)
   }
 
   const onConnect = () => {
@@ -157,6 +158,7 @@ export default function App() {
 
     if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_ALERT) {
       playSound()
+      stopSound()
     }
 
     // handle turning off and on device. deviceCommand[0] is name, [1] is ON / OFF
