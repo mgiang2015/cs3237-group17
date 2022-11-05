@@ -7,7 +7,8 @@ from datetime import datetime
 load_dotenv()
 CONNECTION_STRING = os.getenv('MONGO_CONNECTION_STRING')
 DATABASE = 'Analytics'
-COLLECTION = "SensorData"
+SENSOR_DATA_COLLECTION = "SensorData"
+DEVICE_DATA_COLLECTION = "DeviceData"
 
 client = MongoClient(CONNECTION_STRING)
 print("Successfully connected to MongoDB")
@@ -15,8 +16,22 @@ print("Successfully connected to MongoDB")
 analytics_db = client[DATABASE]
 print((f"DATABASE CONNECTED: {analytics_db}"))
 
-sensor_data = analytics_db[COLLECTION]
+device_data = analytics_db[DEVICE_DATA_COLLECTION]
+print(f"COLLECTION: {device_data}")
+
+sensor_data = analytics_db[SENSOR_DATA_COLLECTION]
 print(f"COLLECTION: {sensor_data}")
+
+# Device data API
+
+def add_device_data(device_data_json):
+    device_data_json["date_time"] = datetime.now()
+    device_data.insert_one(device_data_json)
+
+def get_device_with_identifier(device_identifier):
+    return device_data.find_one({"identifier": device_identifier})
+
+# Sensor data API
 
 def get_all_sensor_data():
     return sensor_data.find()
