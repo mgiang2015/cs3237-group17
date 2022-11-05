@@ -26,7 +26,22 @@ const options = {
 };
 client = new Paho.MQTT.Client(options.host, options.port, options.path);
 
+const MOCK_DB = [
+  {
+    name: "TV",
+    state: DEVICE_STATE_OFF,
+    offTime: new Date(),
+    irSignalOn: "ligma",
+    irSignalOff: "ben dover",
+  },{
+    name: "PANASONIC",
+    state: DEVICE_STATE_OFF,
+    offTime: new Date(),
+    irSignalOn: "ligma",
+    irSignalOff: "ben dover",
+  }
 
+]
 const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
@@ -35,16 +50,41 @@ const PHONE_CHANNEL = "group17/tvManager/phone"
 const CONNECT_DEVICE_CHANNEL = "group17/tvManager/connectDevice"
 const CONNECT_DEVICE_MESSAGE = "CONNECT_DEVICE"
 const CONNECT_DEVICE_DONE = "DONE"
-const TV_STATE_ON = "ON"
-const TV_STATE_OFF = "OFF"
-const MESSAGE_TV_OFF = "TV_OFF"
-const MESSAGE_TV_ON = "TV_ON"
+const DEVICE_STATE_ON = "ON"
+const DEVICE_STATE_OFF = "OFF"
 const JSON_MESSAGE_KEY = "msg"
+
+function getAllDeviceData() {
+  return MOCK_DB;
+}
 
 export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
-  const [tvState, setTvState] = useState(TV_STATE_ON)
-  const [offTime, setOffTime] = useState(new Date())
+  const [allDeviceState, setAllDeviceState] = useState(getAllDeviceData()) // contains an array of device states, would be retrieved from database
+
+  const turnOffDevice = (name) => {
+    const newState = allDeviceState.map(obj => {
+      if (obj.name === name) {
+        return {...obj, state: DEVICE_STATE_OFF, offTime: new Date()}
+      }
+
+      return obj;
+    })
+
+    setAllDeviceState(newState)
+  }
+
+  const turnOnDevice = (name) => {
+    const newState = allDeviceState.map(obj => {
+      if (obj.name === name) {
+        return {...obj, state: DEVICE_STATE_ON}
+      }
+
+      return obj;
+    })
+
+    setAllDeviceState(newState)
+  }
 
   const onConnect = () => {
     console.log('onConnect');
@@ -98,17 +138,13 @@ export default function App() {
       unsubscribeTopic(CONNECT_DEVICE_CHANNEL)
     }
 
-    // handle TV_OFF to /phone
-    if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_TV_OFF) {
-      console.log("TV has turned off")
-      setTvState(TV_STATE_OFF)
-      setOffTime(new Date())
-    }
-
-    // handle TV_ON to /phone
-    if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_TV_ON) {
-      console.log("TV has turned on")
-      setTvState(TV_STATE_ON)
+    // handle turning off and on device. deviceCommand[0] is name, [1] is ON / OFF
+    const deviceCommand = jsonMessage[JSON_MESSAGE_KEY].split('_')
+    if (deviceCommand[1] === DEVICE_STATE_ON) {
+      // turns on device
+      turnOnDevice(deviceCommand[0])
+    } else if (deviceCommand[1] === DEVICE_STATE_OFF) {
+      turnOffDevice(deviceCommand[0])
     }
   }
 
@@ -130,19 +166,17 @@ export default function App() {
   const startConnectDevice = () => {
     // set state to fetching first to get that loading sign
     setStatus(ADDING_DEVICE)
-    console.log("Set status to ADDING DEVICE")
 
     // subscribe to new shit
     subscribeTopic(CONNECT_DEVICE_CHANNEL)
-    console.log("SUBSCRIBED TO NEW SHIT")
 
     // send message to set up channel
     sendMessage(CONNECT_DEVICE_MESSAGE, CONNECT_DEVICE_CHANNEL)
-    console.log("SENT MESSAGE")
   }
 
   // set up client
   useEffect(() => {
+    setStatus(DISCONNECTED)
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;
   }, [client])
@@ -154,15 +188,13 @@ export default function App() {
       return (
         <View>
           {
-            tvState === TV_STATE_ON 
-            ?
-            <Text>
-              {"TV is currently on!"}
-            </Text>
-            :
-            <Text>
-              {`TV has been off since ${offTime.getHours()}:${offTime.getMinutes()}:${offTime.getSeconds()}`}
-            </Text>
+            allDeviceState.map((device) => {
+              if (device.state === DEVICE_STATE_ON) {
+                return <Text>{`Device name: ${device.name}. State: ON`}</Text>
+              } else {
+                return <Text>{`Device name: ${device.name}. State: Off since ${device.offTime.getHours()}:${device.offTime.getMinutes()}:${device.offTime.getSeconds()}`}</Text>
+              }
+            })
           }
           <Button
             type='solid'
