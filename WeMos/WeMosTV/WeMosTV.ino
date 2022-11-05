@@ -102,12 +102,12 @@ void loop() {
 
   // Get the light intensity from the photoresistor
   light = readChannel(ADS1115_COMP_0_GND);
-  light = light * 13107;
+  light = ((light * 13107)/65535) * 1024;
   Serial.print(light);
 
   // Get the sound volume from the sound sensor
   sound = readChannel(ADS1115_COMP_1_GND);
-  sound = sound * 13107;
+  sound = ((sound * 13107)/65535) * 1024;
   Serial.print(sound);
 
   // Get temperature event and print its value.
