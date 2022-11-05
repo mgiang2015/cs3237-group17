@@ -121,7 +121,7 @@ void loop() {
     Serial.print(temperature);
   }
 
-  readings = str(temperature) + str(light) + str(sound)
+  readings = str(temperature) + " " + str(light) + " " + str(sound)
   char msg_out[20];
   dtostrf(readings, 2, 2, msg_out);
   client.publish(topic, msg_out);
