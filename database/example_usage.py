@@ -21,7 +21,6 @@ from datetime import datetime
 #     "sleeping_status": False,
 #     "device_identifier": "abc",
 #     "appliance_status": True,
-#     "time_switched_off": None
 # })
 
 # ASLEEP
@@ -29,5 +28,4 @@ from datetime import datetime
 #     "sleeping_status": True,
 #     "device_identifier": "abc",
 #     "appliance_status": False,
-#     "time_switched_off": datetime.now()
 # })
