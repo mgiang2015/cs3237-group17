@@ -39,8 +39,9 @@ const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
 const JSON_MESSAGE_KEY = "msg"
 const MESSAGE_ALERT = "ALERT"
+const DEVICE_STATE_KEY = "DEVICE_KEY"
 
-var MOCK_DB = [
+var INIT_STATE = [
   {
     name: "TV",
     state: DEVICE_STATE_OFF,
@@ -48,7 +49,7 @@ var MOCK_DB = [
     irSignalOn: "ligma",
     irSignalOff: "ben dover",
   },{
-    name: "PANASONIC",
+    name: "PAN",
     state: DEVICE_STATE_OFF,
     offTime: new Date(),
     irSignalOn: "ligma",
@@ -58,9 +59,36 @@ var MOCK_DB = [
 
 export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
-  const [allDeviceState, setAllDeviceState] = useState(MOCK_DB) // contains an array of device states, would be retrieved from database
+  const [allDeviceState, setAllDeviceState] = useState(INIT_STATE) // contains an array of device states, would be retrieved from database
   const [sound, setSound] = useState(null);
 
+  // AsyncStorage API
+  // value is confirmed to be a JSON value
+  const storeData = async (key, value) => {
+    try {
+      await AsyncStorage.setItem(
+        key, JSON.stringify(value)
+      );
+    } catch (error) {
+      console.log(error)
+    }
+  };
+  
+  const retrieveData = async (key) => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      if (value !== null) {
+        // We have data!!
+        console.log(value);
+        return JSON.parse(value)
+      } else {
+        return null
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  };
+  
   async function playSound() {
     console.log('Loading Sound');
     // need to download a sound
@@ -75,33 +103,43 @@ export default function App() {
     setSound(null)
   }
 
-  function turnOffDevice(name) {
-    const newState = allDeviceState.map(obj => {
-      if (obj.name === name) {
-        var clone = Object.assign({}, {...obj, state: DEVICE_STATE_OFF, offTime: new Date()})
-        return clone
-      }
-
-      return {...obj};
-    })
-
-    setAllDeviceState([...newState])
-    console.log(newState)
-    console.log(allDeviceState)
+  async function turnOffDevice(name) {
+    const currState = await retrieveData(DEVICE_STATE_KEY)
+    if (currState) {
+      const newState = currState.map(obj => {
+        if (obj.name === name) {
+          var clone = Object.assign({}, {...obj, state: DEVICE_STATE_OFF, offTime: new Date()})
+          return clone
+        }
+  
+        return {...obj};
+      })
+      console.log(newState)
+      setAllDeviceState(newState)
+      // save in asyncstorage too
+      storeData(DEVICE_STATE_KEY, newState)
+    }
+    
   }
 
-  function turnOnDevice(name) {
-    const newState = allDeviceState.map(obj => {
-      if (obj.name === name) {
-        var clone = Object.assign({}, {...obj, state: DEVICE_STATE_ON})
-        return clone
-      }
-
-      return {...obj};
-    })
-    setAllDeviceState([...newState])
-    console.log(newState)
-    console.log(allDeviceState)
+  async function turnOnDevice(name) {
+    console.log("Retrieving data")
+    const currState = await retrieveData(DEVICE_STATE_KEY)
+    console.log(currState)
+    if (currState) {
+      const newState = currState.map(obj => {
+        if (obj.name === name) {
+          var clone = Object.assign({}, {...obj, state: DEVICE_STATE_ON})
+          return clone
+        }
+  
+        return {...obj};
+      })
+      console.log(newState)
+      setAllDeviceState(newState)
+      // save in asyncstorage too
+      storeData(DEVICE_STATE_KEY, newState)
+    }
   }
 
   const onConnect = () => {
@@ -197,6 +235,16 @@ export default function App() {
     sendMessage(CONNECT_DEVICE_MESSAGE, CONNECT_DEVICE_CHANNEL)
   }
 
+  // set up async storage
+  useEffect(() => {
+    async function storeInitState() {
+      await storeData(DEVICE_STATE_KEY, INIT_STATE)
+      let val = await retrieveData(DEVICE_STATE_KEY)
+    }
+
+    storeInitState()
+  }, [])
+
   // set up client
   useEffect(() => {
     setStatus(DISCONNECTED)
@@ -227,7 +275,8 @@ export default function App() {
               if (device.state === DEVICE_STATE_ON) {
                 return <Text key={device.name}>{`Device name: ${device.name}. State: ON`}</Text>
               } else {
-                return <Text key={device.name}>{`Device name: ${device.name}. State: Off since ${device.offTime.getHours()}:${device.offTime.getMinutes()}:${device.offTime.getSeconds()}`}</Text>
+                let date = new Date(device.offTime)
+                return <Text key={device.name}>{`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}</Text>
               }
             })
           }
