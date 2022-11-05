@@ -59,11 +59,11 @@ def classify_state(model, data):
         state_of_elec = model.predict(data).reshape(-1, 1) # The state will be either 0 (off) or 1 (on)
     return {"state": state_of_elec}
 
-def main():
-    model = get_dt(MODEL_NAME, train_path="C:/CS3237/electronics.csv")
-    arr = np.array([[33.3, 1024, 53], [38.4, 512, 1024], [33.3, 908, 1024]])
-    state = classify_state(model, arr)
-    print("The current state of the electronic is %s." %(state))
+#def main():
+#    model = get_dt(MODEL_NAME, train_path="C:/CS3237/electronics.csv")
+#    arr = np.array([[33.3, 1024, 53], [38.4, 512, 1024], [33.3, 908, 1024]])
+#    state = classify_state(model, arr)
+#    print("The current state of the electronic is %s." %(state))
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
