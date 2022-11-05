@@ -8,6 +8,7 @@
 
 #### Device Data
 
+```
 name: string
 
 identifier: string
@@ -15,9 +16,11 @@ identifier: string
 off_code: string
 
 on_code: string
+```
 
 #### Sensor Data
 
+```
 sleeping_status: boolean
 
 device_identifier: string
@@ -25,3 +28,4 @@ device_identifier: string
 appliance_status: boolean
 
 time_switched_off: datetime | None
+```
