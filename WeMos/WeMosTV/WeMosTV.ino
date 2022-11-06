@@ -3,9 +3,18 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+
+#include<ADS1115_WE.h> 
+#include<Wire.h>
+#define I2C_ADDRESS 0x48
+ADS1115_WE adc = ADS1115_WE(I2C_ADDRESS);
+
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#define DHTPIN D5
+#define DHTTYPE DHT11 
+DHT_Unified dht(DHTPIN, DHTTYPE);
 
 #define RAW_DATA_LEN 296
 #define DHTPIN D6
@@ -30,6 +39,8 @@ PubSubClient client(espClient);
 DHT_Unified dht(DHTPIN, DHTTYPE);
 
 uint32_t delayMS;
+float light = 0.0;
+float sound = 0.0;
 float temperature = 0.0; 
 
 void callback(char *topic, byte *payload, unsigned int length) {
@@ -46,31 +57,21 @@ void callback(char *topic, byte *payload, unsigned int length) {
 void setup() {
   irsend.begin();
   Serial.begin(9600);
-  dht.begin();
+
+  Wire.begin();
+  if(!adc.init()){
+    Serial.println("ADS1115 not connected!");
+  }
+  adc.setVoltageRange_mV(ADS1115_RANGE_1024);
+  adc.setCompareChannels(ADS1115_COMP_0_GND);
+  adc.setMeasureMode(ADS1115_CONTINUOUS);
+
   // Print temperature sensor details.
   sensor_t sensor;
+  dht.begin();
   dht.temperature().getSensor(&sensor);
-  Serial.println(F("------------------------------------"));
-  Serial.println(F("Temperature Sensor"));
-  Serial.print  (F("Sensor Type: ")); Serial.println(sensor.name);
-  Serial.print  (F("Driver Ver:  ")); Serial.println(sensor.version);
-  Serial.print  (F("Unique ID:   ")); Serial.println(sensor.sensor_id);
-  Serial.print  (F("Max Value:   ")); Serial.print(sensor.max_value); Serial.println(F("°C"));
-  Serial.print  (F("Min Value:   ")); Serial.print(sensor.min_value); Serial.println(F("°C"));
-  Serial.print  (F("Resolution:  ")); Serial.print(sensor.resolution); Serial.println(F("°C"));
-  Serial.println(F("------------------------------------"));
-  // Print humidity sensor details.
-  dht.humidity().getSensor(&sensor);
-  Serial.println(F("Humidity Sensor"));
-  Serial.print  (F("Sensor Type: ")); Serial.println(sensor.name);
-  Serial.print  (F("Driver Ver:  ")); Serial.println(sensor.version);
-  Serial.print  (F("Unique ID:   ")); Serial.println(sensor.sensor_id);
-  Serial.print  (F("Max Value:   ")); Serial.print(sensor.max_value); Serial.println(F("%"));
-  Serial.print  (F("Min Value:   ")); Serial.print(sensor.min_value); Serial.println(F("%"));
-  Serial.print  (F("Resolution:  ")); Serial.print(sensor.resolution); Serial.println(F("%"));
-  Serial.println(F("------------------------------------"));
-  // Set delay between sensor readings based on sensor details.
   delayMS = sensor.min_delay / 1000;
+
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
@@ -97,7 +98,18 @@ void setup() {
 }
 
 void loop() {
-  delay(delayMS);
+  delay(500);
+
+  // Get the light intensity from the photoresistor
+  light = readChannel(ADS1115_COMP_0_GND);
+  light = ((light * 13107)/65535) * 1024;
+  Serial.print(light);
+
+  // Get the sound volume from the sound sensor
+  sound = readChannel(ADS1115_COMP_1_GND);
+  sound = ((sound * 13107)/65535) * 1024;
+  Serial.print(sound);
+
   // Get temperature event and print its value.
   sensors_event_t event;
   dht.temperature().getEvent(&event);
@@ -106,12 +118,19 @@ void loop() {
     Serial.println(F("Error reading temperature!"));
   }
   else {
-    Serial.print(F("Temperature: "));
     Serial.print(temperature);
-    Serial.println(F("°C"));
   }
+
+  readings = str(temperature) + " " + str(light) + " " + str(sound)
   char msg_out[20];
-  dtostrf(temperature, 2, 2, msg_out);
+  dtostrf(readings, 2, 2, msg_out);
   client.publish(topic, msg_out);
   client.loop();
+}
+
+float readChannel(ADS1115_MUX channel) {
+  float voltage = 0.0;
+  adc.setCompareChannels(channel);
+  voltage = adc.getResult_V(); // alternative: getResult_mV for Millivolt
+  return voltage;
 }
