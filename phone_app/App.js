@@ -31,13 +31,15 @@ const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
 const ADDING_DEVICE = 'ADDING_DEVICE'
+const SET_NAME = 'SET_NAME'
 const PHONE_CHANNEL = "group17/tvManager/phone"
-const CONNECT_DEVICE_CHANNEL = "group17/tvManager/connectDevice"
-const CONNECT_DEVICE_MESSAGE = "CONNECT_DEVICE"
-const CONNECT_DEVICE_DONE = "DONE"
+const CONNECT_DEVICE_MESSAGE = "SETUP_DEVICE"
+const CONNECT_DEVICE_IR_READY = "IR_SETUP_READY"
+const CONNECT_DEVICE_IR_DONE = "IR_SETUP_DONE"
+const CONNECT_DEVICE_NAME_DONE = "NAME_SETUP_DONE"
 const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
-const JSON_MESSAGE_KEY = "msg"
+const JSON_MESSAGE_KEY = "command"
 const MESSAGE_ALERT = "ALERT"
 const DEVICE_STATE_KEY = "DEVICE_KEY"
 
@@ -61,6 +63,7 @@ export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
   const [allDeviceState, setAllDeviceState] = useState(INIT_STATE) // contains an array of device states, would be retrieved from database
   const [sound, setSound] = useState(null);
+  const deviceNameInput = React.createRef();
 
   // AsyncStorage API
   // value is confirmed to be a JSON value
@@ -170,12 +173,16 @@ export default function App() {
   }
 
   const disconnect = () => {
-    client.disconnect()
     setStatus(DISCONNECTED)
+    client.disconnect()
     console.log("disconnected")
   }
 
-  const onConnectionLost= (responseObject) =>{
+  const onConnectionLost= (responseObject) => {
+    if (status !== DISCONNECTED) {
+      setStatus(DISCONNECTED)
+    }
+
     if (responseObject.errorCode !== 0) {
       console.log('onConnectionLost:' + responseObject.errorMessage);
     }
@@ -188,21 +195,29 @@ export default function App() {
     // handle DONE to /connectDevice
     const jsonMessage = JSON.parse(message.payloadString)
     console.log(jsonMessage)
-    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_DONE) {
-      console.log("DONE detected")
-      setStatus(CONNECTED)
-      unsubscribeTopic(CONNECT_DEVICE_CHANNEL)
-    }
 
     if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_ALERT) {
       playSound()
       stopSound()
     }
 
+    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_IR_READY) {
+      setDeviceName(ADDING_DEVICE)
+    }
+
+    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_IR_DONE) {
+      // IR has been set up, now add name
+      setDeviceName()
+    }
+
+    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_NAME_DONE) {
+      // name has been added. Finish setting up new device and load from database
+      finishSetup()
+    }
+
     // handle turning off and on device. deviceCommand[0] is name, [1] is ON / OFF
     const deviceCommand = jsonMessage[JSON_MESSAGE_KEY].split('_')
     if (deviceCommand[1] === DEVICE_STATE_ON) {
-      // turns on device
       turnOnDevice(deviceCommand[0])
     } else if (deviceCommand[1] === DEVICE_STATE_OFF) {
       turnOffDevice(deviceCommand[0])
@@ -218,7 +233,7 @@ export default function App() {
   }
 
   const sendMessage = (message, topic) => {
-    var mqttMessage = new Paho.MQTT.Message(`{"msg":"${message}"}`);
+    var mqttMessage = new Paho.MQTT.Message(`{"${JSON_MESSAGE_KEY}":"${message}"}`);
     mqttMessage.destinationName = topic;
     client.send(mqttMessage);
   }
@@ -226,13 +241,25 @@ export default function App() {
   // startConnectDevice
   const startConnectDevice = () => {
     // set state to fetching first to get that loading sign
-    setStatus(ADDING_DEVICE)
-
-    // subscribe to new shit
-    subscribeTopic(CONNECT_DEVICE_CHANNEL)
+    setStatus(FETCHING)
 
     // send message to set up channel
-    sendMessage(CONNECT_DEVICE_MESSAGE, CONNECT_DEVICE_CHANNEL)
+    sendMessage(CONNECT_DEVICE_MESSAGE, PHONE_CHANNEL)
+  }
+
+  const setDeviceName = () => {
+    // set state to fetching first to get that loading sign
+    setStatus(SET_NAME)
+  }
+
+  const sendDeviceName = (deviceName) => {
+    let message = `{"${JSON_MESSAGE_KEY}":"SETUP_NAME_${deviceName}"}`
+    sendMessage(message, PHONE_CHANNEL)
+    setStatus(FETCHING)
+  }
+
+  const finishSetup = () => {
+    setStatus(CONNECTED)
   }
 
   // set up async storage
@@ -309,7 +336,7 @@ export default function App() {
     if (status === ADDING_DEVICE) {
       return (
         <View>
-          <Text>{"Please wait. We are gathering info about your new device"}</Text>
+          <Text>{"Please point your device's remote towards the receiver device and press the power button twice"}</Text>
           <Button
               type='solid'
               title='STOP SET UP'
@@ -320,22 +347,39 @@ export default function App() {
       )
     }
 
-    if (status !== CONNECTED) {
+    if (status === SET_NAME) {
       return (
-        <Button
-          type='solid'
-          title='CONNECT'
-          onPress={connect}
-          buttonStyle={{
-            marginBottom:50,
-            backgroundColor: status === 'failed' ? 'red' : '#397af8'
-          }}
-          icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
-          loading={status === FETCHING ? true : false}
-          disabled={status === FETCHING ? true : false}
-        />
+        <View>
+          <Text>{"Input your new device's name (no underscore please)"}</Text>
+          <Input 
+            ref={deviceNameInput} 
+            placeholder={"Example: PanasonicTV"}
+          />
+          <Button
+            type='solid'
+            title='Submit device name'
+            onPress={() => sendDeviceName(deviceNameInput)}
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
+          />
+        </View>
       )
     }
+    
+    return (
+      <Button
+        type='solid'
+        title='CONNECT'
+        onPress={connect}
+        buttonStyle={{
+          marginBottom:50,
+          backgroundColor: status === 'failed' ? 'red' : '#397af8'
+        }}
+        icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
+        loading={status === FETCHING ? true : false}
+        disabled={status === FETCHING ? true : false}
+      />
+    )
+    
   }
 
   return (
