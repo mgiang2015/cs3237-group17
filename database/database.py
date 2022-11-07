@@ -22,6 +22,9 @@ print(f"COLLECTION: {device_data}")
 sensor_data = analytics_db[SENSOR_DATA_COLLECTION]
 print(f"COLLECTION: {sensor_data}")
 
+device_data.create_index("identifier", unique = True)
+sensor_data.create_index("device_identifier", unique = True)
+
 # Device data API
 
 def add_device_data(device_data_json):
@@ -39,3 +42,6 @@ def get_all_sensor_data():
 def add_sensor_data(sensor_data_json):
     sensor_data_json["date_time"] = datetime.now()
     sensor_data.insert_one(sensor_data_json)
+
+def get_sensor_data_for_device(device_identifier):
+    return list(sensor_data.find({"device_identifier": device_identifier}))

@@ -29,3 +29,5 @@ from datetime import datetime
 #     "device_identifier": "abc",
 #     "appliance_status": False,
 # })
+
+# print(database.get_sensor_data_for_device("abc"))
