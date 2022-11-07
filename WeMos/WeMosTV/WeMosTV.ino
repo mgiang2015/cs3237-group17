@@ -6,6 +6,12 @@
 
 #include<ADS1115_WE.h> 
 #include<Wire.h>
+
+#define DATA_TYPE_IR 0
+#define DATA_TYPE_OTHERS 1
+#define DATA_TYPE_STATUS 2
+const char *id = "f21mcea2a1";
+
 #define I2C_ADDRESS 0x48
 ADS1115_WE adc = ADS1115_WE(I2C_ADDRESS);
 
@@ -121,10 +127,15 @@ void loop() {
     Serial.print(temperature);
   }
 
-  readings = str(temperature) + " " + str(light) + " " + str(sound)
-  char msg_out[20];
-  dtostrf(readings, 2, 2, msg_out);
-  client.publish(topic, msg_out);
+  StaticJsonDocument<64> status_document;
+  status_document["sensor"] = id;
+  status_document["packet_type"] = DATA_TYPE_OTHERS;
+  status_document["temperature"] = str(temperature);
+  status_document["light"] = str(light);
+  status_document["sound"] = str(sound);
+  char msg_out[64];
+  serializeJson(status_document, msg_out);
+  client.publish(publish_topic, msg_out);
   client.loop();
 }
 
