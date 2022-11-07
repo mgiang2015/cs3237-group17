@@ -20,8 +20,7 @@ ADS1115_WE adc = ADS1115_WE(I2C_ADDRESS);
 #include <DHT.h>
 #include <DHT_U.h>
 #define DHTPIN D5
-#define DHTTYPE DHT11 
-DHT_Unified dht(DHTPIN, DHTTYPE);
+#define DHTTYPE DHT11
 
 #define RAW_DATA_LEN 296
 #define DHTPIN D6
@@ -131,12 +130,12 @@ void loop() {
   StaticJsonDocument<64> status_document;
   status_document["sensor"] = id;
   status_document["packet_type"] = DATA_TYPE_OTHERS;
-  status_document["temperature"] = str(temperature);
-  status_document["light"] = str(light);
-  status_document["sound"] = str(sound);
+  status_document["temperature"] = String(temperature);
+  status_document["light"] = String(light);
+  status_document["sound"] = String(sound);
   char msg_out[64];
   serializeJson(status_document, msg_out);
-  client.publish(publish_topic, msg_out);
+  client.publish(topic, msg_out);
   client.loop();
 }
 
