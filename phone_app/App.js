@@ -1,4 +1,4 @@
-import { setStatusBarBackgroundColor, StatusBar } from 'expo-status-bar';
+import { setStatusBarBackgroundColor, setStatusBarNetworkActivityIndicatorVisible, StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -54,14 +54,10 @@ var INIT_STATE = [
     name: "TV",
     state: DEVICE_STATE_OFF,
     offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
   },{
     name: "PAN",
     state: DEVICE_STATE_OFF,
     offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
   }
 ]
 
@@ -151,6 +147,20 @@ export default function App() {
     }
   }
 
+  async function addNewDevice(name) {
+    console.log("Adding device")
+    const currState = await retrieveData(DEVICE_STATE_KEY)
+    currState.unshift({
+      name: name,
+      offTime: new Date(),
+      state: DEVICE_STATE_OFF
+    })
+
+    console.log(currState)
+    setAllDeviceState(currState)
+    storeData(DEVICE_STATE_KEY, currState)
+  }
+
   const onConnect = () => {
     console.log('onConnect');
     setStatus(CONNECTED)
@@ -208,7 +218,7 @@ export default function App() {
     }
 
     if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_READY) {
-      setDeviceName(ADDING_DEVICE)
+      setStatus(ADDING_DEVICE)
     }
 
     if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_DONE) {
@@ -289,6 +299,7 @@ export default function App() {
 
   const finishSetup = () => {
     setStatus(CONNECTED)
+    setDeviceNameInput("")
   }
 
   // set up async storage
@@ -326,6 +337,7 @@ export default function App() {
     if (status === CONNECTED) {
       return (
         <View>
+        <Text style={{ margin: 20 }}>{"Press DISCONNECT to turn off the application. Toggle your devices by tapping on their name."}</Text>
           {
             allDeviceState.map((device) => {
               if (device.state === DEVICE_STATE_ON) {
@@ -334,7 +346,8 @@ export default function App() {
                           key={device.name}
                           title={`Device name: ${device.name}. State: ON`} 
                           onPress={() => turnDeviceOff(device.name)}
-                          buttonStyle={{ marginBottom:50, color: 'black' }}
+                          buttonStyle={{ marginBottom:50 }}
+                          titleStyle={{ color: 'black' }}
                         />
               } else {
                 let date = new Date(device.offTime)
@@ -343,7 +356,8 @@ export default function App() {
                           key={device.name}
                           title={`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}
                           onPress={() => turnDeviceOn(device.name)}
-                          buttonStyle={{ marginBottom:50, color: 'black' }}
+                          buttonStyle={{ marginBottom:50 }}
+                          titleStyle={{ color: 'black' }}
                         />
               }
             })
@@ -358,6 +372,7 @@ export default function App() {
           <Button 
             type='solid'
             title='SET UP NEW DEVICE'
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
             onPress={startConnectDevice}
           />
           {
@@ -366,6 +381,7 @@ export default function App() {
             <Button 
               type='solid'
               title='STOP ALARM'
+              buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
               onPress={stopSound}
             />
             : null
@@ -377,13 +393,21 @@ export default function App() {
     if (status === ADDING_DEVICE) {
       return (
         <View>
-          <Text>{"Please point your device's remote towards the receiver device and press the power button twice"}</Text>
+          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button twice"}</Text>
+          
           <Button
-              type='solid'
-              title='STOP SET UP'
-              onPress={() => setStatus(CONNECTED)}
-              buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
-            />
+            type='solid'
+            loading={true}
+            disabled={true}
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
+          />
+
+          <Button
+            type='solid'
+            title='STOP SET UP'
+            onPress={() => setStatus(CONNECTED)}
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
+          />
         </View>
       )
     }
@@ -391,41 +415,56 @@ export default function App() {
     if (status === SET_NAME) {
       return (
         <View>
-          <Text>{"Input your new device's name (no underscore please)"}</Text>
-          <TextInput 
+          <Text style={{ margin: 20 }}>{"Input your new device's name"}</Text>
+          <TextInput style={{ margin: 20 }}
             onChangeText={text => setDeviceNameInput(text)}
             placeholder={"Example: PanasonicTV"}
           />
           <Button
             type='solid'
             title='Submit device name'
-            onPress={() => sendDeviceName(deviceNameInput)}
+            onPress={() => {
+              // add device
+              addNewDevice(deviceNameInput)
+              sendDeviceName(deviceNameInput)
+            }}
             buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
           />
         </View>
       )
     }
+
+    if (status === FETCHING) {
+      return (
+        <Button
+          type='solid'
+          loading={true}
+          disabled={true}
+        />
+      )
+    }
     
     return (
-      <Button
-        type='solid'
-        title='CONNECT'
-        onPress={connect}
-        buttonStyle={{
-          marginBottom:50,
-          backgroundColor: status === 'failed' ? 'red' : '#397af8'
-        }}
-        icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
-        loading={status === FETCHING ? true : false}
-        disabled={status === FETCHING ? true : false}
-      />
+      <View>
+        <Text style={{ margin: 20 }}>{"Press CONNECT to set up the application."}</Text>
+        <Button
+          type='solid'
+          title='CONNECT'
+          onPress={connect}
+          buttonStyle={{
+            marginBottom:50,
+            backgroundColor: status === 'failed' ? 'red' : '#397af8'
+          }}
+          icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
+        />
+      </View>
+      
     )
     
   }
 
   return (
     <View style={styles.container}>
-      <Text>{status === CONNECTED ? "Press DISCONNECT to turn off the application" : "Press CONNECT to set up the application"}</Text>
       <StatusBar style="auto" />
       {
         renderView()
