@@ -5,7 +5,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Alert,
+  TextInput,
 } from 'react-native';
 import { Input, Button} from '@rneui/base';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,7 +63,7 @@ export default function App() {
   const [status, setStatus] = useState(DISCONNECTED)
   const [allDeviceState, setAllDeviceState] = useState(INIT_STATE) // contains an array of device states, would be retrieved from database
   const [sound, setSound] = useState(null);
-  const deviceNameInput = React.createRef();
+  const [deviceNameInput, setDeviceNameInput] = useState("");
 
   // AsyncStorage API
   // value is confirmed to be a JSON value
@@ -253,7 +253,7 @@ export default function App() {
   }
 
   const sendDeviceName = (deviceName) => {
-    let message = `{"${JSON_MESSAGE_KEY}":"SETUP_NAME_${deviceName}"}`
+    let message = `SETUP_NAME_${deviceName}`
     sendMessage(message, PHONE_CHANNEL)
     setStatus(FETCHING)
   }
@@ -351,8 +351,8 @@ export default function App() {
       return (
         <View>
           <Text>{"Input your new device's name (no underscore please)"}</Text>
-          <Input 
-            ref={deviceNameInput} 
+          <TextInput 
+            onChangeText={text => setDeviceNameInput(text)}
             placeholder={"Example: PanasonicTV"}
           />
           <Button
