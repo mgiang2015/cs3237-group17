@@ -5,6 +5,9 @@ import requests
 from io import StringIO
 from PIL import Image
 
+#database libs
+import databases
+from datetime import datetime
 #decision tree libs
 import numpy as np                                                              
 import pandas as pd
@@ -17,11 +20,24 @@ import tensorflow as tf
 from tensorflow.python.keras.backend import set_session
 import os
 import joblib
-###############3
+###############
+
+IR_ON = 0
+IR_OFF = 1
+PACKET_SIZE = 10
+
+STATUS_UNINITIALIZED = 0
+STATUS_IDLE = 1
+STATUS_RECORDING = 2
+
+DATA_TYPE_IR = 0
+DATA_TYPE_OTHERS = 1
+DATA_TYPE_STATUS = 2
 
 MODEL_NAME = 'electronics.hd5'
 url = 'https://cs3237-366406.uc.r.appspot.com/classify'
 img_counter = 0
+done = False
 photoresistorQueue = []
 onCode = []
 offCode = []
@@ -37,14 +53,31 @@ app.config['MQTT_USERNAME'] = 'hello'  # Set this item when you need to verify u
 app.config['MQTT_PASSWORD'] = '123kek'  # Set this item when you need to verify username and password
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
-topic = ['group17/tvManager/sensors', 'group17/tvManager/Photoresistor', 'group17/tvManager/Camera', 'group17/tvManager/command'];
+topic = ['group17/sensors', 'group17/tvManager/Photoresistor', 'group17/tvManager/Camera', 'group17/phone'];
 mqtt_client = Mqtt(app)
 
 CAMERA_TOPIC = "group17/tvManager/Camera"
-SENSORS_TOPIC = "group17/tvManager/sensors"
-COMMAND_TV_TOPIC = "group17/tvManager/command"
-APP_TOPIC = "group17/tvManager/fromApp"
+SENSORS_TOPIC = "group17/sensors"
+COMMAND_TV_TOPIC = "group17/command"
+APP_TOPIC = "group17/phone"
+APP_CMD_TOPIC = "group17/phoneCommand"
 
+def control_tv(on):
+    # Turn on the TV with True, else False
+    if on is True:
+        message = {
+            "sensor": "2ba9214cvd",
+            "command": "on"
+        }
+    else:
+        message = {
+            "sensor": "2ba9214cvd",
+            "command": "off"
+        }
+    message = json.dumps(message)
+    result = mqtt_client.publish(COMMAND_TV_TOPIC, message)
+
+    return result[0]
 
 @mqtt_client.on_connect()
 def handle_connect(client, userdata, flags, rc):
@@ -62,6 +95,10 @@ def handle_connect(client, userdata, flags, rc):
 def handle_mqtt_message(client, userdata, message):
     global img_counter
     global numOfSleepPics
+    global onCode
+    global offCode
+    global wemosSetupStage
+    global done
 
     data = dict(
         topic1=message.topic,
@@ -78,60 +115,120 @@ def handle_mqtt_message(client, userdata, message):
         f.close()
         imgFile = open(f"D:/CodeStuff/output.jpeg", 'rb')
         img_data = imgFile.read()
+
         # the http -> firebase straight way
         files = {'image': img_data}
 
+        # handled the response
         response = requests.post(url, files=files)
         print(response.content)
         storedVal = json.loads(response.text)
+
         print(storedVal['data']['label'])
         if storedVal['data']['label'] == "sleeping":
             print("YOU HAVE BEEN DETECTED AS SLEEPING BY ML")
             numOfSleepPics = numOfSleepPics + 1
+        else:
+            numOfSleepPics = 0
+
         if numOfSleepPics == 3:
             # Notify the phone app if user is asleep or notify WeMos
-            mqtt_client.publish(COMMAND_TV_TOPIC, message) #<- message ‘{“msg”:”ALERT”}’ to app
-            #do some cool stuff
+            message = {
+                "command": "ALERT"
+            }
+            message = json.dumps(message)
+            print("ALERT THE MEDIA")
+            mqtt_client.publish(APP_CMD_TOPIC, message) #<- message ‘{“command”:”ALERT”}’ to app
+            numOfSleepPics = 0
+
     #Sensoral data sent to database + Perform ML
     elif topic1 == SENSORS_TOPIC:
-        global onCode
-        global offCode
+        arrtemplightsound = []
         unpackedJson = json.loads(message.payload)
-        if unpackedJson["id"] == "photempsound": # <- standardise what structure of command from sensor should be
-            photoresistorQueue.append(unpackedJson["msg"]) # enqueue readings from weijie's sensors
+
+        if unpackedJson["sensor"] == "f21mcea2a1": # <- standardise what structure of command from sensor should be
+            arrtemplightsound.append(unpackedJson["temp"])
+            arrtemplightsound.append(unpackedJson["light"])
+            arrtemplightsound.append(unpackedJson["sound"])
+            photoresistorQueue.append(arrtemplightsound) # enqueue readings from weijie's sensors
             if(len(photoresistorQueue) == 3): # check if queue size is 3, if so run the prediction
                 useTheDecisionTree(photoresistorQueue[0], photoresistorQueue[1], photoresistorQueue[2])
                 photoresistorQueue.pop(0)
             else:
                 print("Unable to make prediction with Photoresistor + Temp + Sound yet")
-            # after running the predicition and printing the state dequeue the oldest reading
-        
-        # TODO: Add sensor data to database and perform ML as required
+
         # 2) Receive on code from wemos
         if wemosSetupStage == 1:
-            if (len(onCode) == unpackedJson["ir_raw_length"]) # <- indicator of last pkt
-                wemosSetupStage += 1
-            for data in unpackedJson['ir_raw_data']:
-                onCode.append(data)
-            setupProtocol()
-        if wemosSetupStage == 3:
-            if (len(offCode) == unpackedJson["ir_raw_length"]) # <- indicator of last pkt
-                wemosSetupStage += 1
-            for data in unpackedJson['ir_raw_data']:
-                offCode.append(data)
-            setupProtocol()
+            unpackedJson = json.loads(message.payload)
+            if unpackedJson['packet_type'] == DATA_TYPE_STATUS:
+                if unpackedJson['status'] == STATUS_RECORDING:
+                    mqtt_client.publish(APP_CMD_TOPIC, message.payload) # Inform phone app that wemos is now recording
+                    print("STATUS RECORDING 1")
+                if unpackedJson['status'] == STATUS_UNINITIALIZED:
+                    mqtt_client.publish(APP_CMD_TOPIC, message.payload) # Inform phone app that wemos is now idle
+                    print("STATUS UNINITIATLIZED 1")
+                    wemosSetupStage += 1
+                    print(wemosSetupStage)
+                    setupProtocol()
+            elif unpackedJson['packet_type'] == DATA_TYPE_IR:
+                print("receiving data")
+                print(len(onCode))
+                print(unpackedJson["ir_raw_length"])
 
-        print(message.payload)
+                for data in unpackedJson['ir_raw_data']:
+                    onCode.append(data)
+
+        if wemosSetupStage == 3:
+            unpackedJson = json.loads(message.payload)
+            print("in stage 3 and triggered sub")
+            if unpackedJson['packet_type'] == DATA_TYPE_STATUS:
+                if unpackedJson['status'] == STATUS_RECORDING:
+                    mqtt_client.publish(APP_CMD_TOPIC, message.payload) # Inform phone app that wemos is now recording
+                    print("STATUS RECORDING 3")
+                if unpackedJson['status'] == STATUS_UNINITIALIZED:
+                    if(done == True):
+                        wemosSetupStage += 1
+                        setupProtocol()
+                        print("STATUS UNINITIATLIZED 3_2")
+                        done = False
+                    mqtt_client.publish(APP_CMD_TOPIC, message.payload) # Inform phone app that wemos is now idle
+                    print("STATUS UNINITIATLIZED 3")
+                    if(done == False):
+                        done = True
+                    
+            elif unpackedJson['packet_type'] == DATA_TYPE_IR:
+                print("send the off code that has been read")
+                for data in unpackedJson['ir_raw_data']:
+                    offCode.append(data)
+                
+
     elif topic1 == APP_TOPIC:
+        print(message.payload)
         unpackedJson = json.loads(message.payload)
-        if unpackedJson["msg"] == "SETUP_DEVICE":
+        if unpackedJson["command"] == "SETUP_DEVICE":
             # we have to initiate setup protocol
+            print("initiate setup now")
             setupProtocol()
-        if "SETUP_NAME_" in unpackedJson["msg"]:
-            # set new name to unpackedJson["msg"]
-        # if unpackedJson["id"] == IR on and off command
+        if "SETUP_NAME_" in unpackedJson["command"]:
+            print("")
+            # set new name to unpackedJson["command"]
+        if unpackedJson["command"] == "PHONE_ON":
+            message = {
+                "sensor": "2ba9214cvd",
+                "command": "on"
+            }
+            message = json.dumps(message)
+            mqtt_client.publish(COMMAND_TV_TOPIC, message, qos=2)
+
+        if unpackedJson["command"] == "PHONE_OFF":
+            message = {
+                "sensor": "2ba9214cvd",
+                "command": "off"
+            }
+            message = json.dumps(message)
+            mqtt_client.publish(COMMAND_TV_TOPIC, message, qos=2)
             # publish message {"sensor": "oaihdadia", "command": "on"} / off as needed
-            # update to le's app that a particular device on/off state just changed with format : ‘{“msg”:”<nameOfAppliance>_ON”}’ or : ‘{“msg”:”<nameOfAppliance>_OFF”}’
+            # update to le's app that a particular device on/off state just changed with format : ‘{“command”:”<nameOfAppliance>_ON”}’ or : ‘{“command”:”<nameOfAppliance>_OFF”}’
             # update database with the on/off state by making database updates
     else:
         print('Received message on topic: {topic1} with payload: {payload}'.format(**data))
@@ -140,8 +237,37 @@ def handle_mqtt_message(client, userdata, message):
 @app.route('/publish', methods=['POST'])
 def publish_message():
     request_data = request.get_json()
-    publish_result = mqtt_client.publish(request_data['topic'], request_data['msg'])
+    publish_result = mqtt_client.publish(request_data['topic'], request_data['command'])
     return jsonify({'code': publish_result[0]})
+
+def store_ir(sensor, data, store_type):
+    i = 0
+    current_packet = 0
+    if store_type == IR_ON:
+        command = "store_ir_on"
+    elif store_type == IR_OFF:
+        command = "store_ir_off"
+    while i < len(data):
+        remaining_data = len(data) - i
+        if remaining_data >= PACKET_SIZE:
+            size_to_process = PACKET_SIZE
+        else:
+            size_to_process = remaining_data
+        temp = []
+        for n in range(i, i + size_to_process):
+            temp.append(data[n])
+        message = {
+            "sensor": sensor,
+            "command": command,
+            "ir_raw_length": len(data),
+            "packet_num": current_packet,
+            "ir_raw_data": temp
+        }
+        message = json.dumps(message)
+        result = mqtt_client.publish(COMMAND_TV_TOPIC, message, qos=2)
+        current_packet += 1
+        i += size_to_process
+    #return result[0]
 
 def setupProtocol():
     global onCode
@@ -151,42 +277,41 @@ def setupProtocol():
         # Begin Setup Protocol
         #SETUP PROTOCOL 1) Request listening Wemos for the On code
         message = {
-            "command": "RECORD"
+            "sensor": "2ba9214cvd",
+            "command": "record"
         }
-        mqtt_client.publish(COMMAND_TV_TOPIC, message)
+        message = json.dumps(message)
+        mqtt_client.publish(COMMAND_TV_TOPIC, message, qos=2)
         wemosSetupStage += 1
     # 3) Send on code back to Wemos
     if wemosSetupStage == 2:
-        # Xu Hui's way of sending back!!
         # Update database with oncode?
+        print("Received full IR message, sending back to wemos")
+        store_ir("2ba9214cvd", onCode, IR_ON)
+        print("Sending...")
     # 4) Request wemos for off code 
         message = {
-            "command": "RECORD"
+            "sensor": "2ba9214cvd",
+            "command": "record"
         }
-        mqtt_client.publish(COMMAND_TV_TOPIC, message)
+        message = json.dumps(message)
+        mqtt_client.publish(COMMAND_TV_TOPIC, message, qos=2)
+        print("Sent request to wemos to record offcode")
         wemosSetupStage += 1
+        print("wemossetup stage " + str(wemosSetupStage))
     # 5) Send off code back to Wemos
     if wemosSetupStage == 4:
         # Xuhui's send off code back to Wemos
-        # publish ‘{“msg”:”IR_SETUP_DONE”}’ to app
-
+        #if is_ir_off_init is False:
+        store_ir("2ba9214cvd", offCode, IR_OFF)
+        print("Sending off code to wemos...")
+        message = {
+            "command": "IR_SETUP_DONE"
+        }
+        message = json.dumps(message)
+        mqtt_client.publish(APP_CMD_TOPIC, message)
+        print("DONE WITH SETUP PROTOCOL, NOW IDLE...")
         wemosSetupStage = 0 #is this it?
-
-def control_tv(on):
-    # Turn on the TV with True, else False
-    if on is True:
-        message = {
-            "command": "on"
-        }
-    else:
-        message = {
-            "command": "off"
-        }
-    message = json.dumps(message)
-    result = mqtt_client.publish(COMMAND_TV_TOPIC, message)
-
-    return result[0]
-
 
 
 ########## DECISION TREE CODE ####################
@@ -235,11 +360,22 @@ def classify_state(model, data):
     return {"state": state_of_elec}
 
 def useTheDecisionTree(arr1, arr2, arr3):
-    model = get_dt(MODEL_NAME, train_path="C:/CS3237/electronics.csv")
+    model = get_dt(MODEL_NAME, train_path="D:\CodeStuff\sleepDep\cs3237-group17\camlogic\electronics.csv")
     arr = np.array([arr1, arr2, arr3]) #[[33.3, 1024, 53], [38.4, 512, 1024], [33.3, 908, 1024]])
     state = classify_state(model, arr)
-    print("The current state of the electronic is %s." %(state))
+    print("The current state of the electronic is %s." %(tellMeIfOnOrNot(state)))
     return state
+
+def tellMeIfOnOrNot(state):
+    label = "off"
+    temp = state["state"][0]
+    light = state["state"][1]
+    sound = state["state"][2]
+    if temp==[0] and light==[0] and sound==[0]:
+        label = "off"
+    else:
+        label = "on"
+    return label
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
