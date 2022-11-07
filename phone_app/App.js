@@ -7,7 +7,7 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import { Input, Button} from '@rneui/base';
+import { Button} from '@rneui/base';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import init from 'react_native_mqtt';
 import { Audio } from 'expo-av';
@@ -31,15 +31,21 @@ const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
 const ADDING_DEVICE = 'ADDING_DEVICE'
-const SET_NAME = 'SET_NAME'
-const PHONE_CHANNEL = "group17/tvManager/phone"
+const SET_NAME = 'SETUP_NAME'
+const PHONE_SEND_CHANNEL = "group17/phone"
+const PHONE_RECEIVE_CHANNEL = "group17/phoneCommand"
 const CONNECT_DEVICE_MESSAGE = "SETUP_DEVICE"
 const CONNECT_DEVICE_IR_READY = "IR_SETUP_READY"
 const CONNECT_DEVICE_IR_DONE = "IR_SETUP_DONE"
 const CONNECT_DEVICE_NAME_DONE = "NAME_SETUP_DONE"
 const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
-const JSON_MESSAGE_KEY = "command"
+const SENSE_ON = "SENSE_ON"
+const SENSE_OFF = "SENSE_OFF"
+const PHONE_ON = "PHONE_ON"
+const PHONE_OFF = "PHONE_OFF"
+const JSON_COMMAND_KEY = "command"
+const JSON_NAME_KEY = "name"
 const MESSAGE_ALERT = "ALERT"
 const DEVICE_STATE_KEY = "DEVICE_KEY"
 
@@ -106,7 +112,7 @@ export default function App() {
     setSound(null)
   }
 
-  async function turnOffDevice(name) {
+  async function detectDeviceOff(name) {
     const currState = await retrieveData(DEVICE_STATE_KEY)
     if (currState) {
       const newState = currState.map(obj => {
@@ -125,7 +131,7 @@ export default function App() {
     
   }
 
-  async function turnOnDevice(name) {
+  async function detectDeviceOn(name) {
     console.log("Retrieving data")
     const currState = await retrieveData(DEVICE_STATE_KEY)
     console.log(currState)
@@ -153,7 +159,7 @@ export default function App() {
     subscribeTopic("HELLOWORLD")
 
     // subscribe to our actual endpoint
-    subscribeTopic(PHONE_CHANNEL)
+    subscribeTopic(PHONE_RECEIVE_CHANNEL)
   }
 
   const onFailure = (err) => {
@@ -196,44 +202,59 @@ export default function App() {
     const jsonMessage = JSON.parse(message.payloadString)
     console.log(jsonMessage)
 
-    if (jsonMessage[JSON_MESSAGE_KEY] === MESSAGE_ALERT) {
+    if (jsonMessage[JSON_COMMAND_KEY] === MESSAGE_ALERT) {
       playSound()
       stopSound()
     }
 
-    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_IR_READY) {
+    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_READY) {
       setDeviceName(ADDING_DEVICE)
     }
 
-    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_IR_DONE) {
+    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_DONE) {
       // IR has been set up, now add name
       setDeviceName()
     }
 
-    if (jsonMessage[JSON_MESSAGE_KEY] === CONNECT_DEVICE_NAME_DONE) {
+    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_NAME_DONE) {
       // name has been added. Finish setting up new device and load from database
       finishSetup()
     }
 
-    // handle turning off and on device. deviceCommand[0] is name, [1] is ON / OFF
-    const deviceCommand = jsonMessage[JSON_MESSAGE_KEY].split('_')
-    if (deviceCommand[1] === DEVICE_STATE_ON) {
-      turnOnDevice(deviceCommand[0])
-    } else if (deviceCommand[1] === DEVICE_STATE_OFF) {
-      turnOffDevice(deviceCommand[0])
+    // things with name
+    if (jsonMessage[JSON_COMMAND_KEY] === SENSE_ON) {
+      detectDeviceOn(jsonMessage[JSON_NAME_KEY])
+    } else if (jsonMessage[JSON_COMMAND_KEY] === SENSE_OFF) {
+      detectDeviceOff(jsonMessage[JSON_NAME_KEY])
     }
+  }
+
+  const turnDeviceOn = (name) => {
+    let jsonMessage = {
+      command: PHONE_ON,
+      name: name
+    }
+
+    sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
+    detectDeviceOn(name)
+  }
+
+  const turnDeviceOff = (name) => {
+    let jsonMessage = {
+      command: PHONE_OFF,
+      name: name
+    }
+
+    sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
+    detectDeviceOff(name)
   }
 
   const subscribeTopic = (topicName) => {
     client.subscribe(topicName, { qos: 0 });
   }
 
-  const unsubscribeTopic = (topicName) => {
-    client.unsubscribe(topicName);
-  }
-
-  const sendMessage = (message, topic) => {
-    var mqttMessage = new Paho.MQTT.Message(`{"${JSON_MESSAGE_KEY}":"${message}"}`);
+  const sendMessage = (jsonMessage, topic) => {
+    var mqttMessage = new Paho.MQTT.Message(JSON.stringify(jsonMessage));
     mqttMessage.destinationName = topic;
     client.send(mqttMessage);
   }
@@ -243,8 +264,13 @@ export default function App() {
     // set state to fetching first to get that loading sign
     setStatus(FETCHING)
 
+    // formulate message
+    let jsonMessage = {
+      command: CONNECT_DEVICE_MESSAGE
+    }
+
     // send message to set up channel
-    sendMessage(CONNECT_DEVICE_MESSAGE, PHONE_CHANNEL)
+    sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
   }
 
   const setDeviceName = () => {
@@ -253,8 +279,11 @@ export default function App() {
   }
 
   const sendDeviceName = (deviceName) => {
-    let message = `SETUP_NAME_${deviceName}`
-    sendMessage(message, PHONE_CHANNEL)
+    let jsonMessage = {
+      command: SET_NAME,
+      name: deviceName
+    }
+    sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
     setStatus(FETCHING)
   }
 
@@ -300,10 +329,22 @@ export default function App() {
           {
             allDeviceState.map((device) => {
               if (device.state === DEVICE_STATE_ON) {
-                return <Text key={device.name}>{`Device name: ${device.name}. State: ON`}</Text>
+                return <Button 
+                          type="clear"
+                          key={device.name}
+                          title={`Device name: ${device.name}. State: ON`} 
+                          onPress={() => turnDeviceOff(device.name)}
+                          buttonStyle={{ marginBottom:50, color: 'black' }}
+                        />
               } else {
                 let date = new Date(device.offTime)
-                return <Text key={device.name}>{`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}</Text>
+                return <Button
+                          type='clear'
+                          key={device.name}
+                          title={`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}
+                          onPress={() => turnDeviceOn(device.name)}
+                          buttonStyle={{ marginBottom:50, color: 'black' }}
+                        />
               }
             })
           }
