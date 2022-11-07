@@ -48,6 +48,8 @@ const JSON_COMMAND_KEY = "command"
 const JSON_NAME_KEY = "name"
 const MESSAGE_ALERT = "ALERT"
 const DEVICE_STATE_KEY = "DEVICE_KEY"
+const ELECTRICITY_COST = 0.3182 // per kWh, as of Oct 2022
+const AVERAGE_TV_WATTAGE = 0.060 // kW
 
 var INIT_STATE = [
   {
@@ -302,6 +304,20 @@ export default function App() {
     setDeviceNameInput("")
   }
 
+  const calculateEnergySaving = (wattage, hours) => {
+    return wattage * hours * ELECTRICITY_COST
+  }
+
+  const getHoursUntilAwake = (offTime) => {
+    var nextAwake  = new Date();
+    nextAwake.setDate(nextAwake.getDate() + 1)
+    nextAwake.setHours(8);
+    nextAwake.setMinutes(0);
+    nextAwake.setMilliseconds(0);
+
+    return (nextAwake - offTime) / 3600000
+  }
+
   // set up async storage
   useEffect(() => {
     async function storeInitState() {
@@ -350,15 +366,20 @@ export default function App() {
                           titleStyle={{ color: 'black' }}
                         />
               } else {
-                let date = new Date(device.offTime)
-                return <Button
-                          type='clear'
-                          key={device.name}
-                          title={`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}
-                          onPress={() => turnDeviceOn(device.name)}
-                          buttonStyle={{ marginBottom:50 }}
-                          titleStyle={{ color: 'black' }}
-                        />
+                let offtime = new Date(device.offTime)
+                return (
+                  <View>
+                    <Button
+                      type='clear'
+                      key={device.name}
+                      title={`Device name: ${device.name}. State: Off since ${offtime.getHours()}:${offtime.getMinutes()}:${offtime.getSeconds()}`}
+                      onPress={() => turnDeviceOn(device.name)}
+                      buttonStyle={{ marginBottom:10 }}
+                      titleStyle={{ color: 'black' }}
+                    />
+                    <Text style={{marginBottom: 10}}>{`You would have saved S$${calculateEnergySaving(AVERAGE_TV_WATTAGE, getHoursUntilAwake(offtime)).toFixed(2)} by 8am tomorrow!`}</Text>
+                  </View>
+                )
               }
             })
           }
