@@ -127,14 +127,14 @@ void loop() {
     Serial.print(temperature);
   }
 
-  StaticJsonDocument<64> status_document;
-  status_document["sensor"] = id;
-  status_document["packet_type"] = DATA_TYPE_OTHERS;
-  status_document["temperature"] = String(temperature);
-  status_document["light"] = String(light);
-  status_document["sound"] = String(sound);
-  char msg_out[64];
-  serializeJson(status_document, msg_out);
+  DynamicJsonDocument tx_document(2048);
+  tx_document["sensor"] = id;
+  tx_document["packet_type"] = DATA_TYPE_OTHERS;
+  tx_document["temp"] = round2(temperature);
+  tx_document["light"] = round2(light);
+  tx_document["sound"] = round2(sound);
+  char msg_out[256];
+  serializeJson(tx_document, msg_out);
   client.publish(topic, msg_out);
   client.loop();
 }
@@ -144,4 +144,8 @@ float readChannel(ADS1115_MUX channel) {
   adc.setCompareChannels(channel);
   voltage = adc.getResult_V(); // alternative: getResult_mV for Millivolt
   return voltage;
+}
+
+double round2(float value) {
+   return (int)(value * 100 + 0.5) / 100.0;
 }
