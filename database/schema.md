@@ -26,4 +26,6 @@ sleeping_status: boolean
 device_identifier: string
 
 appliance_status: boolean
+
+time_switched_off: datetime
 ```
