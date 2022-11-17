@@ -31,12 +31,16 @@ const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
 const ADDING_DEVICE = 'ADDING_DEVICE'
+const IR_PRESS_1_STATUS = "IR_PRESS_1"
+const IR_PRESS_2_STATUS = "IR_PRESS_2"
 const SET_NAME = 'SETUP_NAME'
 const PHONE_SEND_CHANNEL = "group17/phone"
 const PHONE_RECEIVE_CHANNEL = "group17/phoneCommand"
 const CONNECT_DEVICE_MESSAGE = "SETUP_DEVICE"
-const CONNECT_DEVICE_IR_READY = "IR_SETUP_READY"
-const CONNECT_DEVICE_IR_DONE = "IR_SETUP_DONE"
+const IR_PRESS_1_READY = "IR_PRESS_1_READY"
+const IR_PRESS_1_DONE = "IR_PRESS_1_DONE"
+const IR_PRESS_2_READY = "IR_PRESS_2_READY"
+const IR_PRESS_2_DONE = "IR_PRESS_2_DONE"
 const CONNECT_DEVICE_NAME_DONE = "NAME_SETUP_DONE"
 const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
@@ -219,13 +223,20 @@ export default function App() {
       stopSound()
     }
 
-    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_READY) {
-      setStatus(ADDING_DEVICE)
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_1_READY) {
+      setStatus(IR_PRESS_1_STATUS)
     }
 
-    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_DONE) {
-      // IR has been set up, now add name
-      setDeviceName()
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_1_DONE) {
+      setStatus(FETCHING)
+    }
+
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_2_READY) {
+      setStatus(IR_PRESS_2_STATUS)
+    }
+
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_2_DONE) {
+      setStatus(SET_NAME)
     }
 
     if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_NAME_DONE) {
@@ -273,9 +284,6 @@ export default function App() {
 
   // startConnectDevice
   const startConnectDevice = () => {
-    // set state to fetching first to get that loading sign
-    setStatus(FETCHING)
-
     // formulate message
     let jsonMessage = {
       command: CONNECT_DEVICE_MESSAGE
@@ -283,11 +291,9 @@ export default function App() {
 
     // send message to set up channel
     sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
-  }
 
-  const setDeviceName = () => {
     // set state to fetching first to get that loading sign
-    setStatus(SET_NAME)
+    setStatus(FETCHING)
   }
 
   const sendDeviceName = (deviceName) => {
@@ -296,7 +302,7 @@ export default function App() {
       name: deviceName
     }
     sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
-    setStatus(FETCHING)
+    finishSetup()
   }
 
   const finishSetup = () => {
@@ -368,10 +374,9 @@ export default function App() {
               } else {
                 let offtime = new Date(device.offTime)
                 return (
-                  <View>
+                  <View key={device.name}>
                     <Button
                       type='clear'
-                      key={device.name}
                       title={`Device name: ${device.name}. State: Off since ${offtime.getHours()}:${offtime.getMinutes()}:${offtime.getSeconds()}`}
                       onPress={() => turnDeviceOn(device.name)}
                       buttonStyle={{ marginBottom:10 }}
@@ -411,10 +416,10 @@ export default function App() {
       )
     }
 
-    if (status === ADDING_DEVICE) {
+    if (status === IR_PRESS_1_STATUS) {
       return (
         <View>
-          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button twice"}</Text>
+          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button once"}</Text>
           
           <Button
             type='solid'
@@ -422,11 +427,19 @@ export default function App() {
             disabled={true}
             buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
           />
+        </View>
+      )
+    }
 
+    if (status === IR_PRESS_2_STATUS) {
+      return (
+        <View>
+          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button once again"}</Text>
+          
           <Button
             type='solid'
-            title='STOP SET UP'
-            onPress={() => setStatus(CONNECTED)}
+            loading={true}
+            disabled={true}
             buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
           />
         </View>
