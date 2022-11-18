@@ -13,9 +13,9 @@ name: string
 
 identifier: string
 
-off_code: string
+off_code: int[]
 
-on_code: string
+on_code: int[]
 ```
 
 #### Sensor Data
