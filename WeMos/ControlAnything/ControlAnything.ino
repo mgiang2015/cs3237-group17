@@ -13,23 +13,24 @@
 #define STATUS_IDLE 1
 #define STATUS_RECORDING 2
 
+const char *id = "";             // MUST BE FILLED IN BEFORE USE
+
 // WiFi
-const char *ssid = "lmao";
-const char *password = "28c2nYFj";
+const char *ssid = "";           // MUST BE FILLED IN BEFORE USE
+const char *password = "";       // MUST BE FILLED IN BEFORE USE
 
 // MQTT Broker
 const char *mqtt_broker = "broker.emqx.io";
 const char *subscribe_topic = "group17/command";
 const char *publish_topic = "group17/sensors";
-const char *mqtt_username = "emqx";
-const char *mqtt_password = "public";
+const char *mqtt_username = "";  // MUST BE FILLED IN BEFORE USE
+const char *mqtt_password = "";  // MUST BE FILLED IN BEFORE USE
 const int mqtt_port = 1883;
 
 const int PACKET_SIZE = 10;
 const size_t CAPACITY = JSON_ARRAY_SIZE(PACKET_SIZE);
 const uint16_t IRLed = 2;
 const uint16_t IRReceiver = 5;
-const char *id = "2ba9214cvd";
 IRsend irsend(IRLed);
 IRrecv irrecv(IRReceiver, 500);
 
@@ -112,6 +113,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
         serializeJson(tx_document, msg_out);
         client.publish(publish_topic, msg_out);
         arr.clear();
+        yield();
       }
       irrecv.disableIRIn();
       currentState = previousState;
@@ -159,7 +161,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
       Serial.println("Command TURN ON APPLIANCE received");
       if (expectedRawDataOnBytes > 0) {
         for (int i = 0; i < 3; i++) {
-          irsend.sendRaw(rawDataOn, expectedRawDataOnBytes, 36);
+          irsend.sendRaw(rawDataOn, expectedRawDataOnBytes, 38);
           yield();
         }
         Serial.println("Command TURN ON APPLIANCE completed");
@@ -170,7 +172,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
       Serial.println("Command TURN OFF APPLIANCE received");
       if (expectedRawDataOffBytes > 0) {
         for (int i = 0; i < 3; i++) {
-          irsend.sendRaw(rawDataOff, expectedRawDataOffBytes, 36);
+          irsend.sendRaw(rawDataOff, expectedRawDataOffBytes, 38);
           yield();
         }
         Serial.println("Command TURN OFF APPLIANCE completed");

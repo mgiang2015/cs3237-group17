@@ -29,18 +29,18 @@ ADS1115_WE adc = ADS1115_WE(I2C_ADDRESS);
 #define DHTPIN D6
 #define DHTTYPE DHT11
 
-const char *id = "f21mcea2a1";
+const char *id = "";             // MUST BE FILLED IN BEFORE USE
 
 // WiFi
-const char *ssid = "Wifi1";
-const char *password = "12345678";
+const char *ssid = "";           // MUST BE FILLED IN BEFORE USE
+const char *password = "";       // MUST BE FILLED IN BEFORE USE
 
 // MQTT Broker
 const char *mqtt_broker = "broker.emqx.io";
 const char *subscribe_topic = "group17/command";
 const char *publish_topic = "group17/sensors";
-const char *mqtt_username = "emqx";
-const char *mqtt_password = "public";
+const char *mqtt_username = "";  // MUST BE FILLED IN BEFORE USE
+const char *mqtt_password = "";  // MUST BE FILLED IN BEFORE USE
 const int mqtt_port = 1883;
 
 const uint16_t IRLed = 2;
