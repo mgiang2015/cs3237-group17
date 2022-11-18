@@ -221,6 +221,7 @@ export default function App() {
     if (jsonMessage[JSON_COMMAND_KEY] === MESSAGE_ALERT) {
       playSound()
       stopSound()
+      
     }
 
     if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_1_READY) {
