@@ -16,6 +16,8 @@ identifier: string
 off_code: int[]
 
 on_code: int[]
+
+date_time: datetime
 ```
 
 #### Sensor Data
@@ -26,4 +28,6 @@ sleeping_status: boolean
 device_identifier: string
 
 appliance_status: boolean
+
+date_time: datetime
 ```
