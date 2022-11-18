@@ -1,4 +1,4 @@
-import { setStatusBarBackgroundColor, StatusBar } from 'expo-status-bar';
+import { setStatusBarBackgroundColor, setStatusBarNetworkActivityIndicatorVisible, StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -31,12 +31,16 @@ const CONNECTED = 'CONNECTED'
 const DISCONNECTED = 'DISCONNECTED'
 const FETCHING = 'FETCHING'
 const ADDING_DEVICE = 'ADDING_DEVICE'
+const IR_PRESS_1_STATUS = "IR_PRESS_1"
+const IR_PRESS_2_STATUS = "IR_PRESS_2"
 const SET_NAME = 'SETUP_NAME'
 const PHONE_SEND_CHANNEL = "group17/phone"
 const PHONE_RECEIVE_CHANNEL = "group17/phoneCommand"
 const CONNECT_DEVICE_MESSAGE = "SETUP_DEVICE"
-const CONNECT_DEVICE_IR_READY = "IR_SETUP_READY"
-const CONNECT_DEVICE_IR_DONE = "IR_SETUP_DONE"
+const IR_PRESS_1_READY = "IR_PRESS_1_READY"
+const IR_PRESS_1_DONE = "IR_PRESS_1_DONE"
+const IR_PRESS_2_READY = "IR_PRESS_2_READY"
+const IR_PRESS_2_DONE = "IR_PRESS_2_DONE"
 const CONNECT_DEVICE_NAME_DONE = "NAME_SETUP_DONE"
 const DEVICE_STATE_ON = "ON"
 const DEVICE_STATE_OFF = "OFF"
@@ -48,20 +52,18 @@ const JSON_COMMAND_KEY = "command"
 const JSON_NAME_KEY = "name"
 const MESSAGE_ALERT = "ALERT"
 const DEVICE_STATE_KEY = "DEVICE_KEY"
+const ELECTRICITY_COST = 0.3182 // per kWh, as of Oct 2022
+const AVERAGE_TV_WATTAGE = 0.060 // kW
 
 var INIT_STATE = [
   {
     name: "TV",
     state: DEVICE_STATE_OFF,
     offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
   },{
     name: "PAN",
     state: DEVICE_STATE_OFF,
     offTime: new Date(),
-    irSignalOn: "ligma",
-    irSignalOff: "ben dover",
   }
 ]
 
@@ -151,6 +153,20 @@ export default function App() {
     }
   }
 
+  async function addNewDevice(name) {
+    console.log("Adding device")
+    const currState = await retrieveData(DEVICE_STATE_KEY)
+    currState.unshift({
+      name: name,
+      offTime: new Date(),
+      state: DEVICE_STATE_OFF
+    })
+
+    console.log(currState)
+    setAllDeviceState(currState)
+    storeData(DEVICE_STATE_KEY, currState)
+  }
+
   const onConnect = () => {
     console.log('onConnect');
     setStatus(CONNECTED)
@@ -205,15 +221,23 @@ export default function App() {
     if (jsonMessage[JSON_COMMAND_KEY] === MESSAGE_ALERT) {
       playSound()
       stopSound()
+      
     }
 
-    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_READY) {
-      setDeviceName(ADDING_DEVICE)
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_1_READY) {
+      setStatus(IR_PRESS_1_STATUS)
     }
 
-    if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_IR_DONE) {
-      // IR has been set up, now add name
-      setDeviceName()
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_1_DONE) {
+      setStatus(FETCHING)
+    }
+
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_2_READY) {
+      setStatus(IR_PRESS_2_STATUS)
+    }
+
+    if (jsonMessage[JSON_COMMAND_KEY] === IR_PRESS_2_DONE) {
+      setStatus(SET_NAME)
     }
 
     if (jsonMessage[JSON_COMMAND_KEY] === CONNECT_DEVICE_NAME_DONE) {
@@ -261,9 +285,6 @@ export default function App() {
 
   // startConnectDevice
   const startConnectDevice = () => {
-    // set state to fetching first to get that loading sign
-    setStatus(FETCHING)
-
     // formulate message
     let jsonMessage = {
       command: CONNECT_DEVICE_MESSAGE
@@ -271,11 +292,9 @@ export default function App() {
 
     // send message to set up channel
     sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
-  }
 
-  const setDeviceName = () => {
     // set state to fetching first to get that loading sign
-    setStatus(SET_NAME)
+    setStatus(FETCHING)
   }
 
   const sendDeviceName = (deviceName) => {
@@ -284,11 +303,26 @@ export default function App() {
       name: deviceName
     }
     sendMessage(jsonMessage, PHONE_SEND_CHANNEL)
-    setStatus(FETCHING)
+    finishSetup()
   }
 
   const finishSetup = () => {
     setStatus(CONNECTED)
+    setDeviceNameInput("")
+  }
+
+  const calculateEnergySaving = (wattage, hours) => {
+    return wattage * hours * ELECTRICITY_COST
+  }
+
+  const getHoursUntilAwake = (offTime) => {
+    var nextAwake  = new Date();
+    nextAwake.setDate(nextAwake.getDate() + 1)
+    nextAwake.setHours(8);
+    nextAwake.setMinutes(0);
+    nextAwake.setMilliseconds(0);
+
+    return (nextAwake - offTime) / 3600000
   }
 
   // set up async storage
@@ -326,6 +360,7 @@ export default function App() {
     if (status === CONNECTED) {
       return (
         <View>
+        <Text style={{ margin: 20 }}>{"Press DISCONNECT to turn off the application. Toggle your devices by tapping on their name."}</Text>
           {
             allDeviceState.map((device) => {
               if (device.state === DEVICE_STATE_ON) {
@@ -334,17 +369,23 @@ export default function App() {
                           key={device.name}
                           title={`Device name: ${device.name}. State: ON`} 
                           onPress={() => turnDeviceOff(device.name)}
-                          buttonStyle={{ marginBottom:50, color: 'black' }}
+                          buttonStyle={{ marginBottom:50 }}
+                          titleStyle={{ color: 'black' }}
                         />
               } else {
-                let date = new Date(device.offTime)
-                return <Button
-                          type='clear'
-                          key={device.name}
-                          title={`Device name: ${device.name}. State: Off since ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`}
-                          onPress={() => turnDeviceOn(device.name)}
-                          buttonStyle={{ marginBottom:50, color: 'black' }}
-                        />
+                let offtime = new Date(device.offTime)
+                return (
+                  <View key={device.name}>
+                    <Button
+                      type='clear'
+                      title={`Device name: ${device.name}. State: Off since ${offtime.getHours()}:${offtime.getMinutes()}:${offtime.getSeconds()}`}
+                      onPress={() => turnDeviceOn(device.name)}
+                      buttonStyle={{ marginBottom:10 }}
+                      titleStyle={{ color: 'black' }}
+                    />
+                    <Text style={{marginBottom: 10}}>{`You would have saved S$${calculateEnergySaving(AVERAGE_TV_WATTAGE, getHoursUntilAwake(offtime)).toFixed(2)} by 8am tomorrow!`}</Text>
+                  </View>
+                )
               }
             })
           }
@@ -358,6 +399,7 @@ export default function App() {
           <Button 
             type='solid'
             title='SET UP NEW DEVICE'
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
             onPress={startConnectDevice}
           />
           {
@@ -366,6 +408,7 @@ export default function App() {
             <Button 
               type='solid'
               title='STOP ALARM'
+              buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
               onPress={stopSound}
             />
             : null
@@ -374,16 +417,32 @@ export default function App() {
       )
     }
 
-    if (status === ADDING_DEVICE) {
+    if (status === IR_PRESS_1_STATUS) {
       return (
         <View>
-          <Text>{"Please point your device's remote towards the receiver device and press the power button twice"}</Text>
+          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button once"}</Text>
+          
           <Button
-              type='solid'
-              title='STOP SET UP'
-              onPress={() => setStatus(CONNECTED)}
-              buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
-            />
+            type='solid'
+            loading={true}
+            disabled={true}
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
+          />
+        </View>
+      )
+    }
+
+    if (status === IR_PRESS_2_STATUS) {
+      return (
+        <View>
+          <Text style={{ margin: 20 }}>{"Please point your device's remote towards the receiver device and press the power button once again"}</Text>
+          
+          <Button
+            type='solid'
+            loading={true}
+            disabled={true}
+            buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
+          />
         </View>
       )
     }
@@ -391,41 +450,56 @@ export default function App() {
     if (status === SET_NAME) {
       return (
         <View>
-          <Text>{"Input your new device's name (no underscore please)"}</Text>
-          <TextInput 
+          <Text style={{ margin: 20 }}>{"Input your new device's name"}</Text>
+          <TextInput style={{ margin: 20 }}
             onChangeText={text => setDeviceNameInput(text)}
             placeholder={"Example: PanasonicTV"}
           />
           <Button
             type='solid'
             title='Submit device name'
-            onPress={() => sendDeviceName(deviceNameInput)}
+            onPress={() => {
+              // add device
+              addNewDevice(deviceNameInput)
+              sendDeviceName(deviceNameInput)
+            }}
             buttonStyle={{ marginBottom:50, backgroundColor: '#397af8' }}
           />
         </View>
       )
     }
+
+    if (status === FETCHING) {
+      return (
+        <Button
+          type='solid'
+          loading={true}
+          disabled={true}
+        />
+      )
+    }
     
     return (
-      <Button
-        type='solid'
-        title='CONNECT'
-        onPress={connect}
-        buttonStyle={{
-          marginBottom:50,
-          backgroundColor: status === 'failed' ? 'red' : '#397af8'
-        }}
-        icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
-        loading={status === FETCHING ? true : false}
-        disabled={status === FETCHING ? true : false}
-      />
+      <View>
+        <Text style={{ margin: 20 }}>{"Press CONNECT to set up the application."}</Text>
+        <Button
+          type='solid'
+          title='CONNECT'
+          onPress={connect}
+          buttonStyle={{
+            marginBottom:50,
+            backgroundColor: status === 'failed' ? 'red' : '#397af8'
+          }}
+          icon={{ name: 'lan-connect', type: 'material-community', color: 'white' }}
+        />
+      </View>
+      
     )
     
   }
 
   return (
     <View style={styles.container}>
-      <Text>{status === CONNECTED ? "Press DISCONNECT to turn off the application" : "Press CONNECT to set up the application"}</Text>
       <StatusBar style="auto" />
       {
         renderView()
